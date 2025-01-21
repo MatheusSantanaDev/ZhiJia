@@ -1,0 +1,10 @@
+{
+    "wifi_ssid": "MATHEUSZADA",
+    "wifi_password": "rozi1417",
+    "admin_user": "admin",
+    "admin_password": "admin",
+    "mqtt_server": "broker.hivemq.com",
+    "mqtt_port": 1883,
+    "mqtt_user": "user",
+    "mqtt_pass": "password"
+}
