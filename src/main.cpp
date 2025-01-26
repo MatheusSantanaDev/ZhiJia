@@ -2,6 +2,7 @@
 #include <SPIFFS.h>
 #include <WebServer.h>
 #include <ArduinoJson.h>
+#include <HTTPClient.h>
 #include <mqtt_client.h>
 
 // Pinos do LED RGB
@@ -9,11 +10,13 @@ const int ledPinRed = 25;
 const int ledPinGreen = 26;
 const int ledPinBlue = 27;
 
-// Credenciais Wi-Fi
+// Credenciais Wi-Fi e Duck DNS
 char ssid[32];
 char password[64];
 String adminUser;
 String adminPassword;
+String duckDNSToken;
+String duckDNSDomain;
 
 // MQTT
 const char* mqttServer = "mqtt://broker.hivemq.com";
@@ -64,7 +67,43 @@ void loadConfig() {
     strlcpy(password, doc["wifi_password"], sizeof(password));
     adminUser = doc["admin_user"].as<String>();
     adminPassword = doc["admin_password"].as<String>();
+    duckDNSToken = doc["duckdns_token"].as<String>();
+    duckDNSDomain = doc["duckdns_domain"].as<String>();
     file.close();
+}
+
+// Função para atualizar o IP no Duck DNS
+void updateDuckDNS() {
+    HTTPClient http;
+    
+    // Obter o IP público via serviço externo (usando HTTP)
+    http.begin("http://api.ipify.org");  // Usando HTTP para obter o IP
+    int httpCode = http.GET();
+    
+    String ip;
+    if (httpCode == 200) {
+        ip = http.getString();  // IP público
+        Serial.println("IP público obtido: " + ip);
+    } else {
+        Serial.println("Erro ao obter IP público");
+        http.end();
+        return;
+    }
+
+    // Atualiza o Duck DNS com o IP público (usando HTTP)
+    String url = "http://www.duckdns.org/update?domains=" + duckDNSDomain + "&token=" + duckDNSToken + "&ip=" + ip;
+
+    // Envia a requisição para o Duck DNS (usando HTTP)
+    http.begin(url);
+    httpCode = http.GET();
+    
+    if (httpCode == 200) {
+        String response = http.getString();
+        Serial.println("Atualização do Duck DNS: " + response);
+    } else {
+        Serial.printf("Erro ao atualizar DNS: %d\n", httpCode);
+    }
+    http.end();
 }
 
 // Autenticação no servidor HTTP
@@ -75,7 +114,6 @@ bool authenticate() {
     }
     return true;
 }
-
 // Rota para servir o HTML
 void handleRoot() {
     if (!authenticate()) return;
@@ -117,13 +155,13 @@ int mqtt_event_handler(esp_mqtt_event_handle_t event) {
             break;
     }
 
-    return ESP_OK; // Adicione retorno compatível com mqtt_event_callback_t
+    return ESP_OK;
 }
 
 void setupMQTT() {
     esp_mqtt_client_config_t mqttConfig = {};
     mqttConfig.uri = mqttServer;
-    mqttConfig.event_handle = mqtt_event_handler; // Callback corrigido
+    mqttConfig.event_handle = mqtt_event_handler;
 
     mqttClient = esp_mqtt_client_init(&mqttConfig);
     esp_mqtt_client_start(mqttClient);
@@ -140,13 +178,10 @@ void setup() {
         delay(1000);
         Serial.println("Conectando ao Wi-Fi...");
     }
-    Serial.print("Wi-Fi conectado! IP: ");
-    Serial.println(WiFi.localIP());
+    Serial.print("Wi-Fi conectado!");
 
-    // Configurar LED
+    updateDuckDNS();
     setupLED();
-
-    // Configurar MQTT
     setupMQTT();
 
     // Configurar servidor HTTP

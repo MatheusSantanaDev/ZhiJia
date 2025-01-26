@@ -1,32 +1,46 @@
-# Prerequisites
+# Diretórios e arquivos de build
+/.pio/
+/build/
+/out/
+
+# Arquivos de cache e temporários
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*.DS_Store
+*.log
+
+# Configurações específicas da IDE
+/.vscode/
+/.idea/
+/*.code-workspace
+
+# Arquivos binários e de firmware gerados
+*.elf
+*.bin
+*.hex
+*.map
+
+# Configurações específicas do sistema operacional
+Thumbs.db
+.DS_Store
+*.stackdump
+
+# Arquivos de configuração temporários ou locais
+.env
+*.ini
+*.config
+
+# Arquivos relacionados ao PlatformIO
+**/.pio
+**/.piolibdeps
 *.d
-
-# Compiled Object files
-*.slo
-*.lo
 *.o
-*.obj
 
-# Precompiled Headers
-*.gch
-*.pch
+# Arquivos de testes e mock
+/tests/.output/
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+# Exclusões opcionais específicas do seu projeto
+/spiffs_image.bin
