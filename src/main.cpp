@@ -76,24 +76,23 @@ void loadConfig() {
 void updateDuckDNS() {
     HTTPClient http;
     
-    // Obter o IP público via serviço externo (usando HTTP)
-    http.begin("http://api.ipify.org");  // Usando HTTP para obter o IP
+    http.begin("http://api.ipify.org"); // Obter o IP público via serviço externo
     int httpCode = http.GET();
     
     String ip;
     if (httpCode == 200) {
         ip = http.getString();  // IP público
-        Serial.println("IP público obtido: " + ip);
+        Serial.println(" IP público obtido: " + ip);
     } else {
-        Serial.println("Erro ao obter IP público");
+        Serial.println(" Erro ao obter IP público");
         http.end();
         return;
     }
 
-    // Atualiza o Duck DNS com o IP público (usando HTTP)
+    // Atualiza o Duck DNS com o IP público
     String url = "http://www.duckdns.org/update?domains=" + duckDNSDomain + "&token=" + duckDNSToken + "&ip=" + ip;
 
-    // Envia a requisição para o Duck DNS (usando HTTP)
+    // Envia a requisição para o Duck DNS
     http.begin(url);
     httpCode = http.GET();
     
@@ -114,6 +113,7 @@ bool authenticate() {
     }
     return true;
 }
+
 // Rota para servir o HTML
 void handleRoot() {
     if (!authenticate()) return;
@@ -130,31 +130,37 @@ void handleRoot() {
 int mqtt_event_handler(esp_mqtt_event_handle_t event) {
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
-            Serial.println("Conectado ao broker MQTT!");
-            esp_mqtt_client_subscribe(event->client, mqttTopic, 0);
+            Serial.println("[MQTT] Conectado ao broker MQTT!");
+            if (esp_mqtt_client_subscribe(event->client, mqttTopic, 0) != -1) {
+                Serial.printf("[MQTT] Inscrito no tópico: %s\n", mqttTopic);
+            } else {
+                Serial.println("[MQTT] Falha ao se inscrever no tópico.");
+            }
             break;
 
         case MQTT_EVENT_DISCONNECTED:
-            Serial.println("Desconectado do broker MQTT!");
+            Serial.println("[MQTT] Desconectado do broker MQTT!");
             break;
 
         case MQTT_EVENT_DATA: {
-            char colorData[32];
-            strncpy(colorData, event->data, event->data_len);
-            colorData[event->data_len] = '\0';
-            Serial.printf("Comando recebido via MQTT: %s\n", colorData);
+            Serial.printf("[MQTT] Dados recebidos do tópico: %.*s\n", event->topic_len, event->topic);
 
-            int red, green, blue;
-            sscanf(colorData, "%d,%d,%d", &red, &green, &blue);
-            setColor(red, green, blue);
+            // Garantindo que os dados sejam tratados como uma string válida
+            char colorData[32] = {0}; // Inicializa com zeros
+            size_t copyLen = (event->data_len < sizeof(colorData) - 1) ? event->data_len : sizeof(colorData) - 1;
+            strncpy(colorData, event->data, copyLen);
+
+            // Parsing dos valores RGB
+            int red = 0, green = 0, blue = 0;
+            if (sscanf(colorData, "%d,%d,%d", &red, &green, &blue) == 3) {
+                Serial.printf("[MQTT] Definindo cor RGB para: R=%d, G=%d, B=%d\n", red, green, blue);
+                setColor(red, green, blue); // Função definida pelo usuário
+            } else {
+                Serial.println("[MQTT] Formato de comando inválido. Use: R,G,B");
+            }
             break;
         }
-
-        default:
-            Serial.printf("Evento MQTT desconhecido: %d\n", event->event_id);
-            break;
     }
-
     return ESP_OK;
 }
 
@@ -181,13 +187,14 @@ void setup() {
     Serial.print("Wi-Fi conectado!");
 
     updateDuckDNS();
-    setupLED();
-    setupMQTT();
 
     // Configurar servidor HTTP
     server.on("/", HTTP_GET, handleRoot);
     server.begin();
     Serial.println("Servidor HTTP iniciado!");
+
+    setupMQTT();
+    setupLED();
 }
 
 void loop() {
