@@ -5,9 +5,10 @@
     "admin_user": "admin",
     "admin_password": "admin",
 
-    "mqtt_server": "broker.hivemq.com",
+    "mqtt_server": "mqtt://broker.hivemq.com",
     "mqtt_port": 1883,
 
     "duckdns_token": "ef9b85ef-7edc-48da-a926-216e269d5dd1",
-    "duckdns_domain": "central-comando.duckdns.org"
+    "duckdns_domain": "central-comando.duckdns.org",
+    "server_port": 1420
 }

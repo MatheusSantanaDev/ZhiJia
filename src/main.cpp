@@ -19,12 +19,14 @@ String duckDNSToken;
 String duckDNSDomain;
 
 // MQTT
-const char* mqttServer = "mqtt://broker.hivemq.com";
+String mqttServer;
+int mqttPort;
 const char* mqttTopic = "home/led/color";
 esp_mqtt_client_handle_t mqttClient;
 
 // Servidor HTTP
 WebServer server(80);
+int serverPort;
 
 // Configurações do LED
 void setupLED() {
@@ -69,6 +71,10 @@ void loadConfig() {
     adminPassword = doc["admin_password"].as<String>();
     duckDNSToken = doc["duckdns_token"].as<String>();
     duckDNSDomain = doc["duckdns_domain"].as<String>();
+    mqttServer = doc["mqtt_server"].as<String>();
+    mqttPort = doc["mqtt_port"];
+    serverPort = doc["server_port"];
+
     file.close();
 }
 
@@ -166,7 +172,7 @@ int mqtt_event_handler(esp_mqtt_event_handle_t event) {
 
 void setupMQTT() {
     esp_mqtt_client_config_t mqttConfig = {};
-    mqttConfig.uri = mqttServer;
+    mqttConfig.uri = mqttServer.c_str();
     mqttConfig.event_handle = mqtt_event_handler;
 
     mqttClient = esp_mqtt_client_init(&mqttConfig);
@@ -192,7 +198,7 @@ void setup() {
     server.on("/", HTTP_GET, handleRoot);
     server.begin();
     Serial.println("Servidor HTTP iniciado!");
-    Serial.println("Acesse em: http://" + duckDNSDomain + ":1420");
+    Serial.println("Acesse em: http://" + duckDNSDomain + ":" + serverPort);
 
     setupMQTT();
     setupLED();
