@@ -82,7 +82,7 @@ void updateDuckDNS() {
     String ip;
     if (httpCode == 200) {
         ip = http.getString();  // IP público
-        Serial.println(" IP público obtido: " + ip);
+        Serial.println(" IP público obtido.");
     } else {
         Serial.println(" Erro ao obter IP público");
         http.end();
@@ -192,6 +192,7 @@ void setup() {
     server.on("/", HTTP_GET, handleRoot);
     server.begin();
     Serial.println("Servidor HTTP iniciado!");
+    Serial.println("Acesse em: http://" + duckDNSDomain + ":1420");
 
     setupMQTT();
     setupLED();
