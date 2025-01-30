@@ -132,6 +132,24 @@ void handleRoot() {
     file.close();
 }
 
+// Rota para servir arquivos SVG
+void handleSVG() {
+    if (!authenticate()) return; // Autenticação antes de servir os SVGs
+    
+    String path = server.uri();
+    if (path.endsWith(".svg")) {
+        File file = SPIFFS.open(path, "r");
+        if (file) {
+            server.streamFile(file, "image/svg+xml");
+            file.close();
+        } else {
+            server.send(404, "text/plain", "Arquivo SVG não encontrado");
+        }
+    } else {
+        server.send(400, "text/plain", "Requisição inválida");
+    }
+}
+
 // Callback MQTT
 int mqtt_event_handler(esp_mqtt_event_handle_t event) {
     switch (event->event_id) {
@@ -196,6 +214,7 @@ void setup() {
 
     // Configurar servidor HTTP
     server.on("/", HTTP_GET, handleRoot);
+    server.onNotFound(handleSVG);
     server.begin();
     Serial.println("Servidor HTTP iniciado!");
     Serial.println("Acesse em: http://" + duckDNSDomain + ":" + serverPort);
