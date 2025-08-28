@@ -8,39 +8,73 @@
 </head>
 
 <body>
-<div>
-    <h1 id="title">Central de Comando</h1>
-    <div class="buttons-container">
-        <button type="button" onclick="turnOffLights()">
-            <img src="/luz_desligada.svg" alt="Desligar luzes" class="turnOff" />
-        </button>
-        
-        <button type="button" onclick="whiteLight()">
-            <img src="/luz_branca.svg" alt="Luz branca" class="whiteLight" />
-        </button>
+    <header class="main-header">
+        <h1 id="title">Central de Comando</h1>
+        <div class="buttons-container">
+            <button type="button" onclick="turnOffLights()">
+                <img src="/luz_desligada.svg" alt="Desligar luzes" class="turnOff" />
+            </button>
+            <button type="button" onclick="whiteLight()">
+                <img src="/luz_branca.svg" alt="Luz branca" class="whiteLight" />
+            </button>
+            <button type="button" onclick="yellowishLight()">
+                <img src="/luz_amarela.svg" alt="Luz amarelada" class="yellowish" />
+            </button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="card weather-card horizontal-weather">
     
-        <button type="button" onclick="yellowishLight()">
-            <img src="/luz_amarela.svg" alt="Luz amarelada" class="yellowish" />
-        </button>
-    </div>
-</div>
+            <div class="current-weather">
+                <div class="current-main-info">
+                    <img src="./icons/placeholder.svg" alt="Ícone do tempo" id="current-icon" class="weather-icon-large">
+                    <div class="temp-and-desc">
+                        <div class="main-temp" id="current-temp">-°C</div>
+                        <p class="description" id="current-description">-</p>
+                    </div>
+                </div>
+        
+                <div class="current-details">
+                    <h3 id="current-location">Carregando...</h3>
+                    <p>Sensação térmica: <span id="current-feels-like">-°C</span></p>
+                    <p>Umidade: <span id="current-humidity">-%</span></p>
+                </div>
+        
+                <div class="refresh-container">
+                     <button id="refresh-weather" class="refresh-btn" title="Atualizar previsão">
+                        <img src="./icons/refresh.svg" alt="Atualizar">
+                    </button>
+                </div>
+            </div>
+        
+            <div class="weekly-forecast">
+                <ul class="forecast-list" id="forecast-list">
+                    <li class="forecast-day-placeholder">Carregando previsão da semana...</li>
+                </ul>
+            </div>
+        </div>
 
-<div class="rgb-container">
-    <div class="RGB">
-        <div>
-            <input type="range" class="sliderR" id="red" min="0" max="255" value="0" oninput="updateLED()">
-        </div>
-        <div>
-            <input type="range" class="sliderG" id="green" min="0" max="255" value="0" oninput="updateLED()">
-        </div>
-        <div>
-            <input type="range" class="sliderB" id="blue" min="0" max="255" value="0" oninput="updateLED()">
-        </div>
-    </div>
-</div>
+        <div class="controls-container">
+            
+            <div class="card rgb-card">
+                <div class="RGB">
+                    <div>
+                        <input type="range" class="sliderR" id="red" min="0" max="255" value="0" oninput="updateLED()">
+                    </div>
+                    <div>
+                        <input type="range" class="sliderG" id="green" min="0" max="255" value="0" oninput="updateLED()">
+                    </div>
+                    <div>
+                        <input type="range" class="sliderB" id="blue" min="0" max="255" value="0" oninput="updateLED()">
+                    </div>
+                </div>
+            </div>
 
+            </div>
+    </main>
+    
     <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
     <script src="scripts.js"></script>
-
 </body>
 </html>

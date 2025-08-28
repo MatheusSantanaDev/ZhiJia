@@ -1,4 +1,4 @@
-const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt'); // Broker público para teste
+const client = mqtt.connect('wss://broker.hivemq.com:8000/mqtt'); // Broker público para teste
 const topic = 'home/led/color'; // Tópico usado para sincronização
 
 // Conectar ao broker MQTT
@@ -16,6 +16,91 @@ client.on('connect', function () {
 client.on('error', function (error) {
     console.error('Erro na conexão MQTT:', error);
 });
+
+// Função para buscar e atualizar os dados do tempo
+function fetchWeatherData() {
+    console.log("Buscando dados da previsão do tempo...");
+
+    // ---- IMPORTANTE ----
+    // No mundo real, aqui você faria uma chamada para uma API de verdade, como:
+    // fetch('https://api.openweathermap.org/data/2.5/weather?q=Uberlandia&appid=SUA_CHAVE_API&units=metric&lang=pt_br')
+    //     .then(response => response.json())
+    //     .then(data => {
+    //         updateWeatherUI(data); // Função que atualiza a interface
+    //     });
+    //
+    // Por enquanto, vamos usar dados de EXEMPLO (mock) para simular a resposta da API.
+    
+    const mockWeatherData = {
+        location: "Uberlândia, MG",
+        current: {
+            temp: 28,
+            feels_like: 29,
+            humidity: 45,
+            description: "Ensolarado",
+            icon: "sunny" // nome do ícone
+        },
+        forecast: [
+            { day: "Segunda", temp: 24, humidity: 60, icon: "sunny" },
+            { day: "Terça", temp: 20, humidity: 65, icon: "cloudy" },
+            { day: "Quarta", temp: 19, humidity: 70, icon: "rain" },
+            { day: "Quinta", temp: 21, humidity: 68, icon: "storm" },
+            { day: "Sexta", temp: 18, humidity: 75, icon: "rain" }
+        ]
+    };
+
+    // Atraso de 1 segundo para simular o carregamento da rede
+    setTimeout(() => {
+        updateWeatherUI(mockWeatherData);
+    }, 1000);
+}
+
+// Função para atualizar a interface com os dados recebidos
+function updateWeatherUI(data) {
+    // Mapeamento de condições para arquivos de ícone
+    const iconMap = {
+        sunny: './icons/sunny.svg',
+        cloudy: './icons/cloudy.svg',
+        rain: './icons/rain.svg',
+        storm: './icons/storm.svg',
+        // adicione outros ícones conforme necessário
+    };
+
+    // Atualiza a previsão atual
+    document.getElementById('current-location').textContent = data.location;
+    document.getElementById('current-icon').src = iconMap[data.current.icon] || './icons/placeholder.svg';
+    document.getElementById('current-temp').textContent = `${data.current.temp}°C`;
+    document.getElementById('current-description').textContent = data.current.description;
+    document.getElementById('current-feels-like').textContent = `${data.current.feels_like}°C`;
+    document.getElementById('current-humidity').textContent = `${data.current.humidity}%`;
+
+    // Atualiza a previsão da semana
+    const forecastList = document.getElementById('forecast-list');
+    forecastList.innerHTML = ''; // Limpa a lista antes de adicionar novos itens
+
+    data.forecast.forEach(dayData => {
+        const listItem = document.createElement('li');
+        listItem.className = 'forecast-day';
+        
+        listItem.innerHTML = `
+            <span class="day-name">${dayData.day}</span>
+            <img src="${iconMap[dayData.icon] || './icons/placeholder.svg'}" alt="${dayData.icon}" class="day-icon">
+            <span class="day-temp">${dayData.temp}°C</span>
+            <span class="day-humidity">Umidade: ${dayData.humidity}%</span>
+        `;
+        
+        forecastList.appendChild(listItem);
+    });
+    
+    console.log("Interface do tempo atualizada!");
+}
+
+// Event Listeners
+// Roda a função quando a página carregar
+document.addEventListener('DOMContentLoaded', fetchWeatherData);
+
+// Roda a função quando o botão de refresh for clicado
+document.getElementById('refresh-weather').addEventListener('click', fetchWeatherData);
 
 // Atualizar sliders, fundo e cor do título ao receber mensagens MQTT
 client.on('message', function (receivedTopic, message) {
@@ -56,10 +141,12 @@ function updateLED() {
 
 function turnOffLights() {
     setLEDValues(0, 0, 0);
+    document.getElementById('title').style.color = getComplementaryColor(255, 255, 255);
 }
 
 function whiteLight() {
     setLEDValues(255, 255, 255);
+    document.getElementById('title').style.color = getComplementaryColor(0, 0, 0);
 }
 
 function yellowishLight() {
@@ -83,17 +170,17 @@ function getComplementaryColor(r, g, b) {
     }
 
     // Converte RGB para HSL
-    const hsl = rgbToHsl(r, g, b);
+    const hsl = _rgbToHsl(r, g, b);
     
     // A cor complementar é a cor com a matiz (hue) deslocada em 180 graus
     const compH = (hsl[0] + 0.5) % 1;
     
-    const [compR, compG, compB] = hslToRgb(compH, hsl[1], hsl[2]);
+    const [compR, compG, compB] = _hslToRgb(compH, hsl[1], hsl[2]);
     return `rgb(${Math.round(compR)}, ${Math.round(compG)}, ${Math.round(compB)})`;
 }
 
 // Função para converter de RGB para HSL
-function rgbToHsl(r, g, b) {
+function _rgbToHsl(r, g, b) {
     r /= 255;
     g /= 255;
     b /= 255;
@@ -122,7 +209,7 @@ function rgbToHsl(r, g, b) {
 }
 
 // Função para converter de HSL para RGB
-function hslToRgb(h, s, l) {
+function _hslToRgb(h, s, l) {
     let r, g, b;
     
     if (s === 0) {
