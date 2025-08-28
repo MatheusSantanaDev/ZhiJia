@@ -12,42 +12,55 @@
         <h1 id="title">Central de Comando</h1>
         <div class="buttons-container">
             <button type="button" onclick="turnOffLights()">
-                <img src="/luz_desligada.svg" alt="Desligar luzes" class="turnOff" />
+                <img src="./icons/luz_desligada.svg" alt="Desligar luzes" class="turnOff" />
             </button>
             <button type="button" onclick="whiteLight()">
-                <img src="/luz_branca.svg" alt="Luz branca" class="whiteLight" />
+                <img src="./icons/luz_branca.svg" alt="Luz branca" class="whiteLight" />
             </button>
             <button type="button" onclick="yellowishLight()">
-                <img src="/luz_amarela.svg" alt="Luz amarelada" class="yellowish" />
+                <img src="./icons/luz_amarela.svg" alt="Luz amarelada" class="yellowish" />
             </button>
         </div>
     </header>
 
     <main class="main-content">
         <div class="card weather-card horizontal-weather">
-    
+            
             <div class="current-weather">
                 <div class="current-main-info">
-                    <img src="./icons/placeholder.svg" alt="Ícone do tempo" id="current-icon" class="weather-icon-large">
-                    <div class="temp-and-desc">
-                        <div class="main-temp" id="current-temp">-°C</div>
+                    <img src="./icons/local.svg" alt="Ícone do tempo" id="current-icon" class="weather-icon-large"> <div class="temp-and-desc">
+                        <div class="main-temp">
+                            <span id="current-temp-value">-°C</span>
+                        </div>
                         <p class="description" id="current-description">-</p>
                     </div>
                 </div>
-        
+
                 <div class="current-details">
-                    <h3 id="current-location">Carregando...</h3>
-                    <p>Sensação térmica: <span id="current-feels-like">-°C</span></p>
-                    <p>Umidade: <span id="current-humidity">-%</span></p>
+                    <div class="detail-item">
+                        <img src="./icons/local.svg" alt="Local" class="inline-icon">
+                        <h3 id="current-location">Cidade, UF</h3>
+                    </div>
+                    <div class="detail-item">
+                        <p>Hoje, <span id="current-day-of-week">-</span></p>
+                    </div>
+                    <div class="detail-item">
+                        <img src="./icons/termometro.svg" alt="Termômetro" class="inline-icon">
+                        <p>Sensação térmica: <span id="current-feels-like">-°C</span></p>
+                    </div>
+                    <div class="detail-item">
+                        <img src="./icons/gota.svg" alt="Gota de umidade" class="inline-icon">
+                        <p>Umidade: <span id="current-humidity">-%</span></p>
+                    </div>
                 </div>
-        
+
                 <div class="refresh-container">
-                     <button id="refresh-weather" class="refresh-btn" title="Atualizar previsão">
-                        <img src="./icons/refresh.svg" alt="Atualizar">
+                    <button id="refresh-weather" class="refresh-btn" title="Atualizar previsão">
+                        <img src="./icons/atualizar.svg" alt="Atualizar">
                     </button>
                 </div>
             </div>
-        
+
             <div class="weekly-forecast">
                 <ul class="forecast-list" id="forecast-list">
                     <li class="forecast-day-placeholder">Carregando previsão da semana...</li>

@@ -1,5 +1,10 @@
-const client = mqtt.connect('wss://broker.hivemq.com:8000/mqtt'); // Broker público para teste
+const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt'); // Broker público para teste
 const topic = 'home/led/color'; // Tópico usado para sincronização
+const WEATHER_CONFIG = {
+    ZIP_CODE: "38414553",
+    UPDATE_INTERVAL: 3600000 
+};
+
 
 // Conectar ao broker MQTT
 client.on('connect', function () {
@@ -17,90 +22,218 @@ client.on('error', function (error) {
     console.error('Erro na conexão MQTT:', error);
 });
 
-// Função para buscar e atualizar os dados do tempo
-function fetchWeatherData() {
-    console.log("Buscando dados da previsão do tempo...");
+async function fetchWeatherData() {
+    console.log("Iniciando busca de dados...");
+    try {
+        const cep = WEATHER_CONFIG.ZIP_CODE.replace(/\D/g, '');
 
-    // ---- IMPORTANTE ----
-    // No mundo real, aqui você faria uma chamada para uma API de verdade, como:
-    // fetch('https://api.openweathermap.org/data/2.5/weather?q=Uberlandia&appid=SUA_CHAVE_API&units=metric&lang=pt_br')
-    //     .then(response => response.json())
-    //     .then(data => {
-    //         updateWeatherUI(data); // Função que atualiza a interface
-    //     });
-    //
-    // Por enquanto, vamos usar dados de EXEMPLO (mock) para simular a resposta da API.
-    
-    const mockWeatherData = {
-        location: "Uberlândia, MG",
-        current: {
-            temp: 28,
-            feels_like: 29,
-            humidity: 45,
-            description: "Ensolarado",
-            icon: "sunny" // nome do ícone
-        },
-        forecast: [
-            { day: "Segunda", temp: 24, humidity: 60, icon: "sunny" },
-            { day: "Terça", temp: 20, humidity: 65, icon: "cloudy" },
-            { day: "Quarta", temp: 19, humidity: 70, icon: "rain" },
-            { day: "Quinta", temp: 21, humidity: 68, icon: "storm" },
-            { day: "Sexta", temp: 18, humidity: 75, icon: "rain" }
-        ]
-    };
+        // Passo 1: Tenta obter dados de localização do CEP (Plano A)
+        const locationInfo = await getLocationDataFromCep(cep);
+        if (!locationInfo) throw new Error("CEP inválido ou não encontrado na BrasilAPI.");
 
-    // Atraso de 1 segundo para simular o carregamento da rede
-    setTimeout(() => {
-        updateWeatherUI(mockWeatherData);
-    }, 1000);
+        let coords = { lat: locationInfo.lat, lon: locationInfo.lon };
+
+        // Passo 2: Verifica se as coordenadas vieram. Se não, executa o Plano B.
+        if (!coords.lat || !coords.lon) {
+            console.warn("Coordenadas não encontradas para o CEP. Usando nome da cidade.");
+            // Usa o nome da cidade retornado pela BrasilAPI para buscar as coordenadas
+            coords = await getCoordsFromCity(locationInfo.locationName);
+            if (!coords) throw new Error(`Não foi possível encontrar coordenadas para a cidade: ${locationInfo.locationName}`);
+        }
+        console.log("Coordenadas finais utilizadas:", coords);
+
+        // Passo 3: Com as coordenadas garantidas, busca a previsão do tempo
+        const openMeteoURL = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code&daily=weather_code,temperature_2m_max&hourly=relative_humidity_2m&timezone=auto&forecast_days=6`;
+        const response = await fetch(openMeteoURL);
+        if (!response.ok) throw new Error(`Erro na API Open-Meteo: ${response.statusText}`);
+        
+        const weatherData = await response.json();
+
+        // Passo 4: Processa e atualiza a interface
+        const processedData = processApiData(weatherData, locationInfo.locationName);
+        updateWeatherUI(processedData);
+
+    } catch (error) {
+        console.error("ERRO FINAL:", error.message);
+        document.getElementById('current-location').textContent = "Erro ao carregar dados";
+    }
 }
 
-// Função para atualizar a interface com os dados recebidos
-function updateWeatherUI(data) {
-    // Mapeamento de condições para arquivos de ícone
-    const iconMap = {
-        sunny: './icons/sunny.svg',
-        cloudy: './icons/cloudy.svg',
-        rain: './icons/rain.svg',
-        storm: './icons/storm.svg',
-        // adicione outros ícones conforme necessário
+/**
+ * Busca coordenadas (latitude/longitude) a partir de um CEP usando a BrasilAPI.
+ */
+async function getLocationDataFromCep(cep) {
+    const brasilApiURL = `https://brasilapi.com.br/api/cep/v2/${cep}`;
+    try {
+        const response = await fetch(brasilApiURL);
+        if (!response.ok) return null;
+        const data = await response.json();
+
+        // Verifica se a resposta tem coordenadas válidas
+        if (data.location && data.location.coordinates && data.location.coordinates.latitude) {
+            return { 
+                lat: data.location.coordinates.latitude, 
+                lon: data.location.coordinates.longitude,
+                locationName: `${data.city}, ${data.state}`
+            };
+        } else if (data.city) {
+            // Se não tem coordenadas, mas tem cidade, retorna a cidade para o Plano B
+            return {
+                lat: null,
+                lon: null,
+                locationName: `${data.city}, ${data.state}`
+            };
+        }
+        return null; // CEP não encontrado
+    } catch (error) {
+        console.error("[getLocationDataFromCep] Falhou:", error);
+        return null;
+    }
+}
+async function getCoordsFromCity(cityNameWithState) {
+    const cityNameOnly = cityNameWithState.split(',')[0].trim();
+
+    const geocodingURL = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityNameOnly)}&count=1&language=pt&format=json`;
+    try {
+        const response = await fetch(geocodingURL);
+        if (!response.ok) return null;
+        const data = await response.json();
+        
+        if (data.results && data.results[0]) {
+            return {
+                lat: data.results[0].latitude,
+                lon: data.results[0].longitude
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error("[getCoordsFromCity] Falhou:", error);
+        return null;
+    }
+}
+
+/**
+ * Converte os dados brutos da Open-Meteo em um objeto limpo e estruturado.
+ */
+function processApiData(apiData, locationName) {
+    const { current, daily, hourly } = apiData;
+    const weekdays = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+    const today = new Date();
+    const currentDayName = weekdays[today.getDay()];
+
+    const processed = {
+        location: locationName,
+        dayOfWeek: currentDayName,
+        current: {
+            temp: Math.round(current.temperature_2m),
+            feels_like: Math.round(current.apparent_temperature),
+            humidity: current.relative_humidity_2m,
+            description: _getWeatherDescription(current.weather_code),
+            icon: _mapWmoIcon(current.weather_code)
+        },
+        forecast: []
     };
 
-    // Atualiza a previsão atual
+    for (let i = 1; i < daily.time.length; i++) {
+        const forecastDate = daily.time[i];
+        
+        // A lógica para os dias futuros continua a mesma (umidade do meio-dia)
+        const targetTimeString = `${forecastDate}T12:00`;
+        const hourlyIndex = hourly.time.indexOf(targetTimeString);
+        
+        let humidityForDay = 'N/D';
+        if (hourlyIndex !== -1) {
+            humidityForDay = `${hourly.relative_humidity_2m[hourlyIndex]}%`;
+        }
+
+        const date = new Date(forecastDate + 'T00:00:00');
+        const dayName = weekdays[date.getDay()];
+
+        processed.forecast.push({
+            day: dayName,
+            temp: Math.round(daily.temperature_2m_max[i]),
+            humidity: humidityForDay,
+            icon: _mapWmoIcon(daily.weather_code[i])
+        });
+    }
+    return processed;
+}
+
+// Atualiza o HTML com os dados já processados.
+function updateWeatherUI(data) {
+    const iconMap = {
+        sol: './icons/sol.svg',
+        nuvem: './icons/nuvem.svg',
+        nublado: './icons/nublado.svg',
+        chuva_leve: './icons/chuva_leve.svg',
+        chuva: './icons/chuva.svg',
+        trovao: './icons/trovao.svg',
+        neve: './icons/neve.svg',
+        nevoa: './icons/nevoa.svg'
+    };
+    
     document.getElementById('current-location').textContent = data.location;
-    document.getElementById('current-icon').src = iconMap[data.current.icon] || './icons/placeholder.svg';
-    document.getElementById('current-temp').textContent = `${data.current.temp}°C`;
+    document.getElementById('current-icon').src = iconMap[data.current.icon] || './icons/local.svg';
+    document.getElementById('current-day-of-week').textContent = data.dayOfWeek;
+    document.getElementById('current-temp-value').textContent = `${data.current.temp}°C`;
     document.getElementById('current-description').textContent = data.current.description;
     document.getElementById('current-feels-like').textContent = `${data.current.feels_like}°C`;
     document.getElementById('current-humidity').textContent = `${data.current.humidity}%`;
 
-    // Atualiza a previsão da semana
     const forecastList = document.getElementById('forecast-list');
-    forecastList.innerHTML = ''; // Limpa a lista antes de adicionar novos itens
+    forecastList.innerHTML = ''; 
 
     data.forecast.forEach(dayData => {
         const listItem = document.createElement('li');
         listItem.className = 'forecast-day';
-        
         listItem.innerHTML = `
             <span class="day-name">${dayData.day}</span>
-            <img src="${iconMap[dayData.icon] || './icons/placeholder.svg'}" alt="${dayData.icon}" class="day-icon">
-            <span class="day-temp">${dayData.temp}°C</span>
-            <span class="day-humidity">Umidade: ${dayData.humidity}%</span>
+            <img src="${iconMap[dayData.icon] || './icons/local.svg'}" alt="${dayData.icon}" class="day-icon">
+            <span class="day-temp"><img src="./icons/termometro.svg" alt="Termômetro" class="inline-icon"> ${dayData.temp}°C</span>
+            <span class="day-humidity"><img src="./icons/gota.svg" alt="Gota de umidade" class="inline-icon"> ${dayData.humidity}</span>
         `;
-        
         forecastList.appendChild(listItem);
     });
     
-    console.log("Interface do tempo atualizada!");
+    console.log("Interface do tempo atualizada com dados da Open-Meteo!");
 }
 
-// Event Listeners
-// Roda a função quando a página carregar
-document.addEventListener('DOMContentLoaded', fetchWeatherData);
+/**
+ * Mapeia os códigos de tempo (WMO) da Open-Meteo para os nomes dos nossos arquivos SVG.
+ */
+function _mapWmoIcon(code) {
+    if (code <= 1) return "sol";
+    if (code === 2) return "nuvem";
+    if (code === 3) return "nublado";
+    if (code >= 45 && code <= 48) return "nevoa";
+    if (code >= 51 && code <= 67) return "chuva_leve";
+    if (code >= 71 && code <= 77) return "neve";
+    if (code >= 80 && code <= 82) return "chuva";
+    if (code === 95 || code === 96 || code === 99) return "trovao";
 
-// Roda a função quando o botão de refresh for clicado
-document.getElementById('refresh-weather').addEventListener('click', fetchWeatherData);
+    return "nuvem";
+}
+
+/**
+ * Fornece uma descrição em texto para os códigos de tempo (WMO).
+ */
+function _getWeatherDescription(code) {
+    const descriptions = {
+        0: 'Céu limpo', 1: 'Quase limpo', 2: 'Parcialmente nublado', 3: 'Nublado',
+        45: 'Nevoeiro', 48: 'Nevoeiro com gelo',
+        51: 'Garoa leve', 53: 'Garoa moderada', 55: 'Garoa forte',
+        61: 'Chuva leve', 63: 'Chuva moderada', 65: 'Chuva forte',
+        80: 'Pancadas de chuva leves', 81: 'Pancadas de chuva moderadas', 82: 'Pancadas de chuva violentas',
+        95: 'Trovoada', 96: 'Trovoada com granizo', 99: 'Trovoada com granizo forte'
+    };
+    return descriptions[code] || 'Não disponível';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    fetchWeatherData(); 
+    document.getElementById('refresh-weather').addEventListener('click', fetchWeatherData);
+    setInterval(fetchWeatherData, WEATHER_CONFIG.UPDATE_INTERVAL);
+});
 
 // Atualizar sliders, fundo e cor do título ao receber mensagens MQTT
 client.on('message', function (receivedTopic, message) {
@@ -141,12 +274,12 @@ function updateLED() {
 
 function turnOffLights() {
     setLEDValues(0, 0, 0);
-    document.getElementById('title').style.color = getComplementaryColor(255, 255, 255);
+    document.getElementById('title').style.color = getComplementaryColor(0, 0, 0);
 }
 
 function whiteLight() {
     setLEDValues(255, 255, 255);
-    document.getElementById('title').style.color = getComplementaryColor(0, 0, 0);
+    document.getElementById('title').style.color = getComplementaryColor(255, 255, 255);
 }
 
 function yellowishLight() {

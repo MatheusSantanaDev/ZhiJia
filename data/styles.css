@@ -115,6 +115,72 @@ button img {
     color: #333;
 }
 
+/* Alinha o ícone do termômetro com a temperatura principal */
+.main-temp {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.main-temp .inline-icon { /* CORRIGIDO: Seleciona a imagem pela classe */
+    width: 40px; 
+    height: 40px;
+}
+
+/* Alinha os ícones de detalhe (sensação térmica e umidade) */
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.detail-item p {
+    margin: 0;
+}
+.detail-item .inline-icon { /* CORRIGIDO: Seleciona a imagem pela classe */
+    width: 16px;
+    height: 16px;
+}
+
+/* Alinha os ícones na previsão da semana */
+.day-temp, .day-humidity {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.forecast-day .inline-icon { /* CORRIGIDO: Seleciona a imagem pela classe */
+    width: 14px;
+    height: 14px;
+}
+
+/* Garante que o span da umidade não fique muito largo */
+.day-humidity {
+    justify-content: center;
+    width: 60px; 
+}
+/* Regra para o primeiro item da lista de detalhes (a linha da localização) */
+.current-details .detail-item:first-child {
+    /* Opcional: Adiciona um pouco mais de espaço abaixo do título */
+    margin-bottom: 5px;
+}
+
+/* Aumenta o ícone APENAS na primeira linha (a da localização) */
+.current-details .detail-item:first-child .inline-icon {
+    width: 22px;  /* Tamanho maior para o ícone de localização */
+    height: 22px;
+}
+
+/* Restaura o tamanho da fonte do h3 e garante a cor correta */
+.current-details .detail-item:first-child h3 {
+    font-size: 1.4em; /* Tamanho de fonte de um título */
+    color: #333;
+    font-weight: bold;
+}
+
+/* Regra para os ícones nos outros itens (sensação térmica, umidade) */
+/* Garantimos que esta regra continue aplicando o tamanho pequeno para eles */
+.detail-item:not(:first-child) .inline-icon {
+    width: 16px;
+    height: 16px;
+}
 /* Grupo 2: Detalhes */
 .current-details h3 {
     margin: 0 0 5px 0;
