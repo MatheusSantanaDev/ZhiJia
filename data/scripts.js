@@ -1,7 +1,8 @@
 const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt'); // Broker público para teste
 const topic = 'home/led/color'; // Tópico usado para sincronização
+
 const WEATHER_CONFIG = {
-    ZIP_CODE: "38414553",
+    ZIP_CODE: "38414-553",
     UPDATE_INTERVAL: 3600000 
 };
 
@@ -27,29 +28,27 @@ async function fetchWeatherData() {
     try {
         const cep = WEATHER_CONFIG.ZIP_CODE.replace(/\D/g, '');
 
-        // Passo 1: Tenta obter dados de localização do CEP (Plano A)
-        const locationInfo = await getLocationDataFromCep(cep);
+        // Tenta obter dados de localização do CEP
+        const locationInfo = await _getLocationDataFromCep(cep);
         if (!locationInfo) throw new Error("CEP inválido ou não encontrado na BrasilAPI.");
 
         let coords = { lat: locationInfo.lat, lon: locationInfo.lon };
 
-        // Passo 2: Verifica se as coordenadas vieram. Se não, executa o Plano B.
+        // Verifica se as coordenadas vieram. Se não, executa pela cidade
         if (!coords.lat || !coords.lon) {
             console.warn("Coordenadas não encontradas para o CEP. Usando nome da cidade.");
-            // Usa o nome da cidade retornado pela BrasilAPI para buscar as coordenadas
-            coords = await getCoordsFromCity(locationInfo.locationName);
+            coords = await _getCoordsFromCity(locationInfo.locationName);
             if (!coords) throw new Error(`Não foi possível encontrar coordenadas para a cidade: ${locationInfo.locationName}`);
         }
         console.log("Coordenadas finais utilizadas:", coords);
 
-        // Passo 3: Com as coordenadas garantidas, busca a previsão do tempo
         const openMeteoURL = `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code&daily=weather_code,temperature_2m_max&hourly=relative_humidity_2m&timezone=auto&forecast_days=6`;
         const response = await fetch(openMeteoURL);
         if (!response.ok) throw new Error(`Erro na API Open-Meteo: ${response.statusText}`);
         
         const weatherData = await response.json();
 
-        // Passo 4: Processa e atualiza a interface
+        // Processa e atualiza a interface
         const processedData = processApiData(weatherData, locationInfo.locationName);
         updateWeatherUI(processedData);
 
@@ -59,62 +58,7 @@ async function fetchWeatherData() {
     }
 }
 
-/**
- * Busca coordenadas (latitude/longitude) a partir de um CEP usando a BrasilAPI.
- */
-async function getLocationDataFromCep(cep) {
-    const brasilApiURL = `https://brasilapi.com.br/api/cep/v2/${cep}`;
-    try {
-        const response = await fetch(brasilApiURL);
-        if (!response.ok) return null;
-        const data = await response.json();
-
-        // Verifica se a resposta tem coordenadas válidas
-        if (data.location && data.location.coordinates && data.location.coordinates.latitude) {
-            return { 
-                lat: data.location.coordinates.latitude, 
-                lon: data.location.coordinates.longitude,
-                locationName: `${data.city}, ${data.state}`
-            };
-        } else if (data.city) {
-            // Se não tem coordenadas, mas tem cidade, retorna a cidade para o Plano B
-            return {
-                lat: null,
-                lon: null,
-                locationName: `${data.city}, ${data.state}`
-            };
-        }
-        return null; // CEP não encontrado
-    } catch (error) {
-        console.error("[getLocationDataFromCep] Falhou:", error);
-        return null;
-    }
-}
-async function getCoordsFromCity(cityNameWithState) {
-    const cityNameOnly = cityNameWithState.split(',')[0].trim();
-
-    const geocodingURL = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityNameOnly)}&count=1&language=pt&format=json`;
-    try {
-        const response = await fetch(geocodingURL);
-        if (!response.ok) return null;
-        const data = await response.json();
-        
-        if (data.results && data.results[0]) {
-            return {
-                lat: data.results[0].latitude,
-                lon: data.results[0].longitude
-            };
-        }
-        return null;
-    } catch (error) {
-        console.error("[getCoordsFromCity] Falhou:", error);
-        return null;
-    }
-}
-
-/**
- * Converte os dados brutos da Open-Meteo em um objeto limpo e estruturado.
- */
+// Converte os dados brutos da Open-Meteo em um objeto limpo e estruturado.
 function processApiData(apiData, locationName) {
     const { current, daily, hourly } = apiData;
     const weekdays = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
@@ -135,9 +79,8 @@ function processApiData(apiData, locationName) {
     };
 
     for (let i = 1; i < daily.time.length; i++) {
+
         const forecastDate = daily.time[i];
-        
-        // A lógica para os dias futuros continua a mesma (umidade do meio-dia)
         const targetTimeString = `${forecastDate}T12:00`;
         const hourlyIndex = hourly.time.indexOf(targetTimeString);
         
@@ -198,37 +141,6 @@ function updateWeatherUI(data) {
     console.log("Interface do tempo atualizada com dados da Open-Meteo!");
 }
 
-/**
- * Mapeia os códigos de tempo (WMO) da Open-Meteo para os nomes dos nossos arquivos SVG.
- */
-function _mapWmoIcon(code) {
-    if (code <= 1) return "sol";
-    if (code === 2) return "nuvem";
-    if (code === 3) return "nublado";
-    if (code >= 45 && code <= 48) return "nevoa";
-    if (code >= 51 && code <= 67) return "chuva_leve";
-    if (code >= 71 && code <= 77) return "neve";
-    if (code >= 80 && code <= 82) return "chuva";
-    if (code === 95 || code === 96 || code === 99) return "trovao";
-
-    return "nuvem";
-}
-
-/**
- * Fornece uma descrição em texto para os códigos de tempo (WMO).
- */
-function _getWeatherDescription(code) {
-    const descriptions = {
-        0: 'Céu limpo', 1: 'Quase limpo', 2: 'Parcialmente nublado', 3: 'Nublado',
-        45: 'Nevoeiro', 48: 'Nevoeiro com gelo',
-        51: 'Garoa leve', 53: 'Garoa moderada', 55: 'Garoa forte',
-        61: 'Chuva leve', 63: 'Chuva moderada', 65: 'Chuva forte',
-        80: 'Pancadas de chuva leves', 81: 'Pancadas de chuva moderadas', 82: 'Pancadas de chuva violentas',
-        95: 'Trovoada', 96: 'Trovoada com granizo', 99: 'Trovoada com granizo forte'
-    };
-    return descriptions[code] || 'Não disponível';
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     fetchWeatherData(); 
     document.getElementById('refresh-weather').addEventListener('click', fetchWeatherData);
@@ -248,7 +160,7 @@ client.on('message', function (receivedTopic, message) {
         // Atualiza a cor de fundo e do título
         const bgColor = `rgb(${red}, ${green}, ${blue})`;
         document.body.style.backgroundColor = bgColor;
-        document.getElementById('title').style.color = getComplementaryColor(red, green, blue);
+        document.getElementById('title').style.color = _getComplementaryColor(red, green, blue);
 
         console.log(`Cor recebida: R=${red}, G=${green}, B=${blue}`);
     }
@@ -262,7 +174,7 @@ function updateLED() {
     // Atualiza a cor de fundo e do título
     const bgColor = `rgb(${red}, ${green}, ${blue})`;
     document.body.style.backgroundColor = bgColor;
-    document.getElementById('title').style.color = getComplementaryColor(red, green, blue);
+    document.getElementById('title').style.color = _getComplementaryColor(red, green, blue);
 
     // Publica a nova cor no tópico MQTT
     if (client.connected) {
@@ -272,16 +184,15 @@ function updateLED() {
     }
 }
 
+// Botoes
 function turnOffLights() {
     setLEDValues(0, 0, 0);
-    document.getElementById('title').style.color = getComplementaryColor(0, 0, 0);
+    document.getElementById('title').style.color = _getComplementaryColor(0, 0, 0);
 }
-
 function whiteLight() {
     setLEDValues(255, 255, 255);
-    document.getElementById('title').style.color = getComplementaryColor(255, 255, 255);
+    document.getElementById('title').style.color = _getComplementaryColor(255, 255, 255);
 }
-
 function yellowishLight() {
     setLEDValues(255, 80, 0);
 }
@@ -293,7 +204,7 @@ function setLEDValues(r, g, b) {
     updateLED();
 }
 
-function getComplementaryColor(r, g, b) {
+function _getComplementaryColor(r, g, b) {
     // Verificar se a cor é preta ou branca
     if (r === 0 && g === 0 && b === 0) {
         return 'rgb(255, 255, 255)';
@@ -310,6 +221,79 @@ function getComplementaryColor(r, g, b) {
     
     const [compR, compG, compB] = _hslToRgb(compH, hsl[1], hsl[2]);
     return `rgb(${Math.round(compR)}, ${Math.round(compG)}, ${Math.round(compB)})`;
+}
+
+async function _getLocationDataFromCep(cep) {
+    const brasilApiURL = `https://brasilapi.com.br/api/cep/v2/${cep}`;
+    try {
+        const response = await fetch(brasilApiURL);
+        if (!response.ok) return null;
+        const data = await response.json();
+
+        if (data.location && data.location.coordinates && data.location.coordinates.latitude) {
+            return { 
+                lat: data.location.coordinates.latitude, 
+                lon: data.location.coordinates.longitude,
+                locationName: `${data.city}, ${data.state}`
+            };
+        } else if (data.city) {
+            return {
+                lat: null,
+                lon: null,
+                locationName: `${data.city}, ${data.state}`
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error("[_getLocationDataFromCep] Falhou:", error);
+        return null;
+    }
+}
+
+async function _getCoordsFromCity(cityNameWithState) {
+    const cityNameOnly = cityNameWithState.split(',')[0].trim();
+
+    const geocodingURL = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityNameOnly)}&count=1&language=pt&format=json`;
+    try {
+        const response = await fetch(geocodingURL);
+        if (!response.ok) return null;
+        const data = await response.json();
+        
+        if (data.results && data.results[0]) {
+            return {
+                lat: data.results[0].latitude,
+                lon: data.results[0].longitude
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error("[_getCoordsFromCity] Falhou:", error);
+        return null;
+    }
+}
+function _mapWmoIcon(code) {
+    if (code <= 1) return "sol";
+    if (code === 2) return "nuvem";
+    if (code === 3) return "nublado";
+    if (code >= 45 && code <= 48) return "nevoa";
+    if (code >= 51 && code <= 67) return "chuva_leve";
+    if (code >= 71 && code <= 77) return "neve";
+    if (code >= 80 && code <= 82) return "chuva";
+    if (code === 95 || code === 96 || code === 99) return "trovao";
+
+    return "nuvem";
+}
+
+function _getWeatherDescription(code) {
+    const descriptions = {
+        0: 'Céu limpo', 1: 'Quase limpo', 2: 'Parcialmente nublado', 3: 'Nublado',
+        45: 'Nevoeiro', 48: 'Nevoeiro com gelo',
+        51: 'Garoa leve', 53: 'Garoa moderada', 55: 'Garoa forte',
+        61: 'Chuva leve', 63: 'Chuva moderada', 65: 'Chuva forte',
+        80: 'Pancadas de chuva leves', 81: 'Pancadas de chuva moderadas', 82: 'Pancadas de chuva violentas',
+        95: 'Trovoada', 96: 'Trovoada com granizo', 99: 'Trovoada com granizo forte'
+    };
+    return descriptions[code] || 'Não disponível';
 }
 
 // Função para converter de RGB para HSL

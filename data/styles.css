@@ -9,7 +9,7 @@ body {
 
 /* --- HEADER --- */
 .main-header {
-    position: relative; /* Necessário para posicionar os botões dentro dele */
+    position: relative;
     text-align: center;
     margin-bottom: 30px;
 }
@@ -24,7 +24,7 @@ h1 {
     position: absolute;
     right: 0;
     top: 50%;
-    transform: translateY(-50%); /* Centraliza verticalmente */
+    transform: translateY(-50%);
     display: flex;
     gap: 10px;
 }
@@ -56,12 +56,12 @@ button img {
 /* --- CONTEÚDO PRINCIPAL E CARDS --- */
 .main-content {
     display: flex;
-    flex-direction: column; /* Empilha os itens verticalmente */
-    align-items: center;   /* Centraliza os itens na horizontal */
+    flex-direction: column;
+    align-items: center;
     gap: 30px;
 }
 
-/* ADICIONADO: Estilo base para todos os cards */
+/* Estilo base para todos os cards */
 .card {
     background: gainsboro;
     padding: 20px;
@@ -71,28 +71,27 @@ button img {
 }
 
 /* --- ESTILOS DO CARD DE PREVISÃO DO TEMPO HORIZONTAL --- */
-
 /* O card agora é um container de coluna, empilhando a previsão atual SOBRE a da semana */
 .horizontal-weather {
     display: flex;
-    flex-direction: column; /* MUITO IMPORTANTE: empilha as seções */
+    flex-direction: column;
     gap: 15px;
     width: 100%;
     max-width: 800px;
     padding: 20px;
-    background-color: #f7f9fc; /* Cor de fundo suave para o card todo */
+    background-color: #f7f9fc;
 }
 
 /* Seção de Cima: Previsão Atual */
 .current-weather {
-    display: flex; /* Alinha os grupos de informação lado a lado */
+    display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid #e0e0e0;
     padding-bottom: 15px;
 }
 
-/* Grupo 1: Ícone e Temperatura */
+/* Ícone e Temperatura */
 .current-main-info {
     display: flex;
     align-items: center;
@@ -100,14 +99,14 @@ button img {
 }
 
 .weather-icon-large {
-    width: 64px; /* Ícone um pouco menor */
+    width: 64px;
     height: 64px;
 }
 
 .main-temp {
-    font-size: 3em; /* Temperatura um pouco menor */
+    font-size: 3em;
     font-weight: bold;
-    line-height: 1; /* Remove espaçamento extra */
+    line-height: 1;
 }
 .description {
     margin: 0;
@@ -115,18 +114,17 @@ button img {
     color: #333;
 }
 
-/* Alinha o ícone do termômetro com a temperatura principal */
 .main-temp {
     display: flex;
     align-items: center;
     gap: 10px;
 }
-.main-temp .inline-icon { /* CORRIGIDO: Seleciona a imagem pela classe */
+.main-temp .inline-icon {
     width: 40px; 
     height: 40px;
 }
 
-/* Alinha os ícones de detalhe (sensação térmica e umidade) */
+/* Alinha os ícones*/
 .detail-item {
     display: flex;
     align-items: center;
@@ -135,7 +133,7 @@ button img {
 .detail-item p {
     margin: 0;
 }
-.detail-item .inline-icon { /* CORRIGIDO: Seleciona a imagem pela classe */
+.detail-item .inline-icon {
     width: 16px;
     height: 16px;
 }
@@ -146,42 +144,35 @@ button img {
     align-items: center;
     gap: 5px;
 }
-.forecast-day .inline-icon { /* CORRIGIDO: Seleciona a imagem pela classe */
+.forecast-day .inline-icon {
     width: 14px;
     height: 14px;
 }
 
-/* Garante que o span da umidade não fique muito largo */
 .day-humidity {
     justify-content: center;
     width: 60px; 
 }
-/* Regra para o primeiro item da lista de detalhes (a linha da localização) */
 .current-details .detail-item:first-child {
-    /* Opcional: Adiciona um pouco mais de espaço abaixo do título */
     margin-bottom: 5px;
 }
 
-/* Aumenta o ícone APENAS na primeira linha (a da localização) */
 .current-details .detail-item:first-child .inline-icon {
-    width: 22px;  /* Tamanho maior para o ícone de localização */
+    width: 22px;
     height: 22px;
 }
 
-/* Restaura o tamanho da fonte do h3 e garante a cor correta */
 .current-details .detail-item:first-child h3 {
-    font-size: 1.4em; /* Tamanho de fonte de um título */
+    font-size: 1.4em;
     color: #333;
     font-weight: bold;
 }
 
-/* Regra para os ícones nos outros itens (sensação térmica, umidade) */
-/* Garantimos que esta regra continue aplicando o tamanho pequeno para eles */
 .detail-item:not(:first-child) .inline-icon {
     width: 16px;
     height: 16px;
 }
-/* Grupo 2: Detalhes */
+
 .current-details h3 {
     margin: 0 0 5px 0;
     font-size: 1.2em;
@@ -192,9 +183,9 @@ button img {
     font-size: 0.9em;
 }
 
-/* Grupo 3: Botão de Atualizar */
+/* Botão de Atualizar */
 .refresh-container {
-    align-self: flex-start; /* Alinha o botão no topo do seu container */
+    align-self: flex-start;
 }
 .refresh-btn {
     width: 40px;
@@ -207,24 +198,24 @@ button img {
     height: 20px;
 }
 
-/* Seção de Baixo: Previsão da Semana */
+/* Previsão da Semana */
 .weekly-forecast {
-    width: 100%; /* Ocupa toda a largura */
+    width: 100%;
 }
 
 .forecast-list {
     list-style-type: none;
     padding: 0;
     margin: 0;
-    display: flex; /* MÁGICA AQUI: Coloca os dias lado a lado */
-    justify-content: space-between; /* Distribui o espaço entre eles */
+    display: flex;
+    justify-content: space-between;
 }
 
 .forecast-day {
-    flex: 1; /* Faz cada dia ocupar um espaço igual */
+    flex: 1;
     display: flex;
-    flex-direction: column; /* Empilha o conteúdo de cada dia */
-    align-items: center;   /* Centraliza o conteúdo */
+    flex-direction: column;
+    align-items: center;
     gap: 8px;
     padding: 10px 5px;
     border-radius: 10px;
@@ -235,7 +226,6 @@ button img {
     background-color: #eef2f7;
 }
 
-/* Removemos a borda de baixo que não faz mais sentido */
 .forecast-day:last-child {
     border-bottom: none;
 }
@@ -258,39 +248,36 @@ button img {
 /* --- RESPONSIVIDADE PARA O CARD HORIZONTAL --- */
 @media (max-width: 768px) {
     .current-weather {
-        flex-direction: column; /* Em telas pequenas, empilha os grupos da previsão atual */
+        flex-direction: column;
         align-items: stretch;
         gap: 15px;
     }
     .refresh-container {
-        align-self: center; /* Centraliza o botão */
+        align-self: center;
     }
     .forecast-list {
-        flex-direction: column; /* Empilha os dias da semana */
+        flex-direction: column;
     }
     .forecast-day {
-        flex-direction: row; /* Coloca o conteúdo de cada dia em linha */
+        flex-direction:
         justify-content: space-between;
         border-bottom: 1px solid #eee;
     }
 }
 
-
-/* ADICIONADO: Container para a linha de cards de controle */
+/* Container para a linha de cards de controle */
 .controls-container {
-    display: flex;         /* A MÁGICA ACONTECE AQUI */
-    justify-content: flex-start; /* Alinha os cards à esquerda */
-    gap: 20px;             /* Espaçamento entre os cards */
-    flex-wrap: wrap;       /* Permite que os cards quebrem para a próxima linha */
+    display: flex;
+    justify-content: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
     width: 100%;
 }
 
-/* O card de RGB agora usa o estilo base .card */
 .rgb-card {
-    width: 220px; /* Largura fixa para o card RGB */
+    width: 220px;
 }
 
-/* Estilos internos do componente RGB (quase inalterados) */
 .RGB {
     display: flex;
     flex-direction: column;
@@ -302,7 +289,7 @@ button img {
     width: 100%;
 }
 
-/* --- SLIDERS (Inalterado) --- */
+/* --- SLIDERS --- */
 input[type="range"] {
     -webkit-appearance: none;
     width: 100%;
@@ -317,7 +304,6 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 15p
 .sliderG::-webkit-slider-thumb { background: rgb(0, 255, 0); }
 .sliderB::-webkit-slider-thumb { background: rgb(0, 0, 255); }
 
-/* --- RESPONSIVIDADE (Ajustes) --- */
 @media (max-width: 768px) {
     .main-header {
         text-align: center;
@@ -327,11 +313,11 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 15p
         margin-bottom: 20px;
     }
     .buttons-container {
-        position: static; /* Remove o posicionamento absoluto */
+        position: static;
         transform: none;
-        justify-content: center; /* Centraliza os botões */
+        justify-content: center;
     }
     .controls-container {
-        justify-content: center; /* Centraliza os cards de controle */
+        justify-content: center;
     }
 }
