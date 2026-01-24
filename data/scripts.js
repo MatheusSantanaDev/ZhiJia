@@ -1,20 +1,35 @@
 const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt'); // Broker público para teste
-const topic = 'home/led/color'; // Tópico usado para sincronização
+const LEDTopic = 'home/led/color';
+const servoTopic = 'home/servo/angle';
 
 const WEATHER_CONFIG = {
     ZIP_CODE: "38414-553",
-    UPDATE_INTERVAL: 3600000 
+    UPDATE_INTERVAL: 3600000
 };
+
+// Variáveis do slider de velocidade do motor
+let speedValue = 50;
+const speedMin = 1;
+const speedMax = 100;
 
 
 // Conectar ao broker MQTT
 client.on('connect', function () {
     console.log('Conectado ao broker MQTT');
-    client.subscribe(topic, function (err) {
+
+    client.subscribe(LEDTopic, function (err) {
         if (err) {
             console.error('Erro ao se inscrever no tópico:', err);
         } else {
-            console.log('Inscrito no tópico:', topic);
+            console.log('Inscrito no tópico:', LEDTopic);
+        }
+    });
+
+    client.subscribe(servoTopic, function (err) {
+        if (err) {
+            console.error('Erro ao se inscrever no tópico:', err);
+        } else {
+            console.log('Inscrito no tópico:', servoTopic);
         }
     });
 });
@@ -147,9 +162,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(fetchWeatherData, WEATHER_CONFIG.UPDATE_INTERVAL);
 });
 
-// Atualizar sliders, fundo e cor do título ao receber mensagens MQTT
+// Atualizar interface ao receber mensagens MQTT
 client.on('message', function (receivedTopic, message) {
-    if (receivedTopic === topic) {
+    if (receivedTopic === LEDTopic) {
         const [red, green, blue] = message.toString().split(',').map(Number);
 
         // Atualiza os sliders
@@ -163,6 +178,23 @@ client.on('message', function (receivedTopic, message) {
         document.getElementById('title').style.color = _getComplementaryColor(red, green, blue);
 
         console.log(`Cor recebida: R=${red}, G=${green}, B=${blue}`);
+    }
+
+    if (receivedTopic === servoTopic) {
+        try {
+            const data = JSON.parse(message.toString());
+            const speed = data.speed;
+
+            // Atualiza o slider de velocidade com o valor absoluto
+            speedValue = Math.abs(speed);
+            if (speedValue < speedMin) speedValue = speedMin;
+            if (speedValue > speedMax) speedValue = speedMax;
+            updateSpeedTrack();
+
+            console.log(`Comando do motor recebido: velocidade=${speed}`);
+        } catch (e) {
+            console.error('Erro ao parsear mensagem do servo:', e);
+        }
     }
 });
 
@@ -178,9 +210,76 @@ function updateLED() {
 
     // Publica a nova cor no tópico MQTT
     if (client.connected) {
-        client.publish(topic, `${red},${green},${blue}`);
+        client.publish(LEDTopic, `${red},${green},${blue}`);
     } else {
         console.error('MQTT não está conectado.');
+    }
+}
+
+// Slider de velocidade customizado
+const speedSliderContainer = document.getElementById('speedSliderContainer');
+const speedTrack = document.getElementById('speedTrack');
+
+function updateSpeedTrack() {
+    const percentage = ((speedValue - speedMin) / (speedMax - speedMin)) * 100;
+    speedTrack.style.background = `linear-gradient(to right, #4CAF50 ${percentage}%, #ccc ${percentage}%)`;
+}
+
+function setSpeedFromPosition(clientX) {
+    const rect = speedSliderContainer.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, x / rect.width));
+    speedValue = Math.round(speedMin + percentage * (speedMax - speedMin));
+    updateSpeedTrack();
+}
+
+// Eventos de mouse
+speedSliderContainer.addEventListener('mousedown', (e) => {
+    setSpeedFromPosition(e.clientX);
+
+    const onMouseMove = (e) => setSpeedFromPosition(e.clientX);
+    const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+});
+
+// Eventos de touch
+speedSliderContainer.addEventListener('touchstart', (e) => {
+    setSpeedFromPosition(e.touches[0].clientX);
+});
+
+speedSliderContainer.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    setSpeedFromPosition(e.touches[0].clientX);
+});
+
+// Inicializa o slider
+updateSpeedTrack();
+
+// Função para abrir (velocidade positiva)
+function openMotor() {
+    sendMotorCommand(speedValue);
+}
+
+// Função para fechar (velocidade negativa)
+function closeMotor() {
+    sendMotorCommand(-speedValue);
+}
+
+// Função que envia o comando para o motor
+function sendMotorCommand(speed) {
+    const command = { speed: speed };
+    const message = JSON.stringify(command);
+
+    console.log(`Enviando comando para o motor: ${message}`);
+    if (client.connected) {
+        client.publish(servoTopic, message);
+    } else {
+        console.error('MQTT não conectado.');
     }
 }
 

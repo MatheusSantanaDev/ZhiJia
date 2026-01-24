@@ -1,6 +1,6 @@
 /* --- ESTILOS GERAIS --- */
 body {
-    background: rgb(255, 255, 255);
+    background-color: #fff;
     margin: 0;
     padding: 20px;
     font-family: sans-serif;
@@ -30,7 +30,7 @@ h1 {
 }
 
 button {
-    background-color: white;
+    background-color: #fff;
     width: 50px;
     height: 50px;
     border-radius: 50%;
@@ -63,7 +63,7 @@ button img {
 
 /* Estilo base para todos os cards */
 .card {
-    background: gainsboro;
+    background-color: gainsboro;
     padding: 20px;
     border-radius: 20px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -104,20 +104,18 @@ button img {
 }
 
 .main-temp {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font-size: 3em;
     font-weight: bold;
     line-height: 1;
 }
+
 .description {
     margin: 0;
     font-size: 1.1em;
     color: #333;
-}
-
-.main-temp {
-    display: flex;
-    align-items: center;
-    gap: 10px;
 }
 .main-temp .inline-icon {
     width: 40px; 
@@ -226,10 +224,6 @@ button img {
     background-color: #eef2f7;
 }
 
-.forecast-day:last-child {
-    border-bottom: none;
-}
-
 .day-name {
     font-weight: bold;
 }
@@ -248,14 +242,23 @@ button img {
 /* Container para a linha de cards de controle */
 .controls-container {
     display: flex;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 20px;
     flex-wrap: wrap;
     width: 100%;
 }
 
-.rgb-card {
-    width: 220px;
+/* Estilo comum para cards de controle (LED e Motor) */
+.rgb-card,
+.servo-card {
+    flex: 1;
+    min-width: 200px;
+    max-width: 280px;
+    min-height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
 }
 
 .RGB {
@@ -264,6 +267,7 @@ button img {
     justify-content: center;
     align-items: center;
     gap: 10px;
+    width: 100%;
 }
 .RGB div {
     width: 100%;
@@ -272,17 +276,156 @@ button img {
 /* --- SLIDERS --- */
 input[type="range"] {
     -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
     width: 100%;
     height: 10px;
     border-radius: 10px;
+    background: transparent;
 }
-.sliderR::-webkit-slider-runnable-track { background: rgb(233, 42, 42); height: 10px; border-radius: 10px; }
-.sliderG::-webkit-slider-runnable-track { background: rgb(35, 236, 35); height: 10px; border-radius: 10px; }
-.sliderB::-webkit-slider-runnable-track { background: rgb(48, 138, 240); height: 10px; border-radius: 10px; }
-input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; margin-top: -2.5px; cursor: pointer; border: 2px solid white; }
-.sliderR::-webkit-slider-thumb { background: rgb(255, 0, 0); }
-.sliderG::-webkit-slider-thumb { background: rgb(0, 255, 0); }
-.sliderB::-webkit-slider-thumb { background: rgb(0, 0, 255); }
+
+/* Track - WebKit (Chrome, Safari, Edge) */
+.sliderR::-webkit-slider-runnable-track {
+    background: rgb(233, 42, 42);
+    height: 10px;
+    border-radius: 10px;
+}
+.sliderG::-webkit-slider-runnable-track {
+    background: rgb(35, 236, 35);
+    height: 10px;
+    border-radius: 10px;
+}
+.sliderB::-webkit-slider-runnable-track {
+    background: rgb(48, 138, 240);
+    height: 10px;
+    border-radius: 10px;
+}
+
+/* Track - Firefox */
+.sliderR::-moz-range-track {
+    background: rgb(233, 42, 42);
+    height: 10px;
+    border-radius: 10px;
+}
+.sliderG::-moz-range-track {
+    background: rgb(35, 236, 35);
+    height: 10px;
+    border-radius: 10px;
+}
+.sliderB::-moz-range-track {
+    background: rgb(48, 138, 240);
+    height: 10px;
+    border-radius: 10px;
+}
+
+/* Thumb - WebKit (Chrome, Safari, Edge) */
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    margin-top: -2.5px;
+    cursor: pointer;
+    border: 2px solid white;
+}
+.sliderR::-webkit-slider-thumb {
+    background: rgb(255, 0, 0);
+}
+.sliderG::-webkit-slider-thumb {
+    background: rgb(0, 255, 0);
+}
+.sliderB::-webkit-slider-thumb {
+    background: rgb(0, 0, 255);
+}
+
+/* Thumb - Firefox */
+input[type="range"]::-moz-range-thumb {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid white;
+}
+.sliderR::-moz-range-thumb {
+    background: rgb(255, 0, 0);
+}
+.sliderG::-moz-range-thumb {
+    background: rgb(0, 255, 0);
+}
+.sliderB::-moz-range-thumb {
+    background: rgb(0, 0, 255);
+}
+
+/* Estilos para o card do Servo */
+.servo-control {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+/* Slider de velocidade estilo triângulo */
+.speed-slider-container {
+    position: relative;
+    width: 100%;
+    height: 25px;
+    cursor: pointer;
+    touch-action: none;
+}
+
+.speed-track {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    clip-path: polygon(0% 100%, 100% 0%, 100% 100%);
+    background: linear-gradient(to right, #4CAF50 37.5%, #ccc 37.5%);
+    border-radius: 3px;
+}
+
+.servo-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.motor-btn {
+    flex: 1;
+    padding: 12px 20px;
+    font-size: 1em;
+    font-weight: bold;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+    width: auto;
+    height: auto;
+}
+
+.motor-btn:hover {
+    transform: scale(1.05);
+}
+
+.open-btn {
+    background-color: #4CAF50;
+    color: white;
+    border: 2px solid #45a049;
+}
+
+.open-btn:hover {
+    background-color: #45a049;
+}
+
+.close-btn {
+    background-color: #f44336;
+    color: white;
+    border: 2px solid #da190b;
+}
+
+.close-btn:hover {
+    background-color: #da190b;
+}
 
 /* --- RESPONSIVIDADE PARA TELAS VERTICAIS --- */
 @media (max-width: 768px) {
@@ -326,7 +469,11 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 15p
         border-bottom: 1px solid #eee;
         align-items: center;
     }
-    
+
+    .forecast-day:last-child {
+        border-bottom: none;
+    }
+
     .forecast-day .day-name {
         flex-basis: 35%;
         text-align: left;
@@ -349,5 +496,11 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 15p
     .horizontal-weather {
         width: 90%;
         justify-content: center;
+    }
+
+    .rgb-card,
+    .servo-card {
+        flex: 1 1 100%;
+        max-width: 100%;
     }
 }

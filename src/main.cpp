@@ -4,11 +4,21 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <mqtt_client.h>
+#include <ESP32Servo.h>
 
 // Pinos do LED RGB
 const int ledPinRed = 25;
 const int ledPinGreen = 26;
 const int ledPinBlue = 27;
+
+// Pino Servo Motor
+const int servoPin = 15;
+Servo myServo;
+
+// Pinos dos sensores de fim de curso (usar pull-up interno, sensor fecha para GND)
+const int sensorOpenPin = 32;   // Fim de curso "aberto"
+const int sensorClosedPin = 33; // Fim de curso "fechado"
+int currentDirection = 0;       // -1 = fechando, 0 = parado, 1 = abrindo
 
 // Variáveis de configuração
 char ssid[32] = "";
@@ -24,6 +34,7 @@ int serverPort = 80;
 WebServer server(80);
 esp_mqtt_client_handle_t mqttClient;
 const char* mqttTopic = "home/led/color";
+const char* servoTopic = "home/servo/angle";
 
 
 // Conexão WiFi ========================================================
@@ -94,17 +105,87 @@ void setColor(uint8_t r, uint8_t g, uint8_t b) {
     ledcWrite(2, b);
 }
 
+// Controle Servo ======================================================
+void setupServo() {
+    myServo.attach(servoPin, 500, 2400);
+    myServo.write(90); // Inicia parado (90 = neutro para servo de rotação contínua)
+
+    // Configura sensores de fim de curso com pull-up interno
+    pinMode(sensorOpenPin, INPUT_PULLUP);
+    pinMode(sensorClosedPin, INPUT_PULLUP);
+}
+
+void stopServo() {
+    myServo.write(90);
+    currentDirection = 0;
+    Serial.println("[SERVO] Motor parado.");
+}
+
+void setServoSpeed(int speed) {
+    // speed: -100 a 100
+    // Negativo = fechando (anti-horário)
+    // Positivo = abrindo (horário)
+    speed = constrain(speed, -100, 100);
+
+    // Verifica fim de curso antes de mover
+    bool isFullyOpen = digitalRead(sensorOpenPin) == LOW;
+    bool isFullyClosed = digitalRead(sensorClosedPin) == LOW;
+
+    // Bloqueia movimento se já está no fim de curso correspondente
+    if (speed > 0 && isFullyOpen) {
+        Serial.println("[SERVO] Já está totalmente aberto. Movimento bloqueado.");
+        stopServo();
+        return;
+    }
+    if (speed < 0 && isFullyClosed) {
+        Serial.println("[SERVO] Já está totalmente fechado. Movimento bloqueado.");
+        stopServo();
+        return;
+    }
+
+    // Define direção atual
+    if (speed > 0) currentDirection = 1;
+    else if (speed < 0) currentDirection = -1;
+    else currentDirection = 0;
+
+    // Mapeia para o servo: 0 = anti-horário max, 90 = parado, 180 = horário max
+    int servoValue = map(speed, -100, 100, 0, 180);
+    myServo.write(servoValue);
+
+    if (speed != 0) {
+        Serial.printf("[SERVO] Motor girando. Velocidade: %d, Direção: %s\n",
+            abs(speed), speed > 0 ? "ABRINDO" : "FECHANDO");
+    }
+}
+
+void checkEndstops() {
+    if (currentDirection == 0) return; // Motor parado, não precisa verificar
+
+    bool isFullyOpen = digitalRead(sensorOpenPin) == LOW;
+    bool isFullyClosed = digitalRead(sensorClosedPin) == LOW;
+
+    if (currentDirection == 1 && isFullyOpen) {
+        Serial.println("[SERVO] Fim de curso ABERTO acionado!");
+        stopServo();
+    }
+    if (currentDirection == -1 && isFullyClosed) {
+        Serial.println("[SERVO] Fim de curso FECHADO acionado!");
+        stopServo();
+    }
+}
+
 // MQTT ================================================================
 
-int mqtt_event_handler(esp_mqtt_event_handle_t event) {
+esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             Serial.println("[MQTT] Conectado ao broker!");
-            if (esp_mqtt_client_subscribe(event->client, mqttTopic, 0) != -1) {
-                Serial.printf("[MQTT] Inscrito no tópico: %s\n", mqttTopic);
-            } else {
-                Serial.println("[MQTT] Erro na inscrição!");
-            }
+            // Inscreve-se no tópico do LED
+            esp_mqtt_client_subscribe(event->client, mqttTopic, 0);
+            Serial.printf("[MQTT] Inscrito no tópico: %s\n", mqttTopic);
+            // Inscreve-se no tópico do Servo
+            esp_mqtt_client_subscribe(event->client, servoTopic, 0);
+            Serial.printf("[MQTT] Inscrito no tópico: %s\n", servoTopic);
             break;
 
         case MQTT_EVENT_DISCONNECTED:
@@ -112,25 +193,44 @@ int mqtt_event_handler(esp_mqtt_event_handle_t event) {
             break;
 
         case MQTT_EVENT_DATA: {
-            char payload[32] = {0};
-            size_t len = (event->data_len < sizeof(payload)-1) ? event->data_len : sizeof(payload)-1;
-            memcpy(payload, event->data, len);
-            
-            int r, g, b;
-            if (sscanf(payload, "%d,%d,%d", &r, &g, &b) == 3) {
-                setColor(r, g, b);
-                Serial.printf("[MQTT] Nova cor: R=%d, G=%d, B=%d\n", r, g, b);
-            } else {
-                Serial.println("[MQTT] Formato inválido! Use: R,G,B");
+            char payload[32];
+            char topic[128];
+            strncpy(payload, event->data, std::min((size_t)event->data_len, sizeof(payload) - 1));
+            payload[std::min((size_t)event->data_len, sizeof(payload) - 1)] = '\0';
+            strncpy(topic, event->topic, std::min((size_t)event->topic_len, sizeof(topic) - 1));
+            topic[std::min((size_t)event->topic_len, sizeof(topic) - 1)] = '\0';
+
+            // Verifica em qual tópico a mensagem chegou
+            if (strcmp(topic, mqttTopic) == 0) {
+                // Lógica do LED
+                int r, g, b;
+                if (sscanf(payload, "%d,%d,%d", &r, &g, &b) == 3) {
+                    setColor(r, g, b);
+                    Serial.printf("[LED] Nova cor: R=%d, G=%d, B=%d\n", r, g, b);
+                }
+            } else if (strcmp(topic, servoTopic) == 0) {
+                JsonDocument doc;
+                DeserializationError error = deserializeJson(doc, payload);
+
+                if (error) {
+                    Serial.print(F("[SERVO] Falha ao parsear JSON: "));
+                    Serial.println(error.c_str());
+                    return ESP_FAIL;
+                }
+
+                int speed = doc["speed"]; // Positivo = abrir, Negativo = fechar
+                setServoSpeed(speed);
             }
             break;
         }
-
         case MQTT_EVENT_ERROR:
             Serial.println("[MQTT] Erro na conexão!");
             if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
                 Serial.printf("[MQTT] Código do erro: %d\n", event->error_handle->esp_transport_sock_errno);
             }
+            break;
+
+        default:
             break;
     }
     return ESP_OK;
@@ -232,6 +332,7 @@ void initSystems() {
     }
     loadConfig();
     setupLED();
+    setupServo();
 }
 
 void setup() {
@@ -247,4 +348,5 @@ void setup() {
 
 void loop() {
     server.handleClient();
+    checkEndstops();
 }
