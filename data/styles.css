@@ -29,6 +29,84 @@ h1 {
     gap: 10px;
 }
 
+/* Indicador de conexão MQTT */
+.connection-status {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 20px;
+    font-size: 0.8em;
+    transition: all 0.3s ease;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #ffc107;
+    transition: background-color 0.3s ease;
+}
+
+.status-text {
+    font-weight: 500;
+    font-size: 0.75em;
+    transition: color 0.3s ease;
+}
+
+/* Estado: Conectando */
+.connection-status.connecting .status-dot {
+    background-color: #ffc107;
+    animation: pulse-yellow 1.5s infinite;
+}
+
+.connection-status.connecting .status-text {
+    color: #e6a800;
+}
+
+/* Estado: Conectado */
+.connection-status.connected .status-dot {
+    background-color: #4CAF50;
+    animation: pulse-green 2s infinite;
+}
+
+.connection-status.connected .status-text {
+    color: #4CAF50;
+}
+
+/* Estado: Desconectado */
+.connection-status.disconnected .status-dot {
+    background-color: #f44336;
+    animation: none;
+}
+
+.connection-status.disconnected .status-text {
+    color: #f44336;
+}
+
+@keyframes pulse-yellow {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(255, 193, 7, 0);
+    }
+}
+
+@keyframes pulse-green {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(76, 175, 80, 0);
+    }
+}
+
 button {
     background-color: #fff;
     width: 50px;
@@ -440,7 +518,14 @@ input[type="range"]::-moz-range-thumb {
         margin-bottom: 20px;
     }
     h1 {
-        margin-bottom: 20px;
+        margin-bottom: 15px;
+        margin-top: 35px;
+    }
+    .connection-status {
+        position: static;
+        transform: none;
+        justify-content: center;
+        margin-bottom: 10px;
     }
     .buttons-container {
         position: static;

@@ -12,10 +12,17 @@ let speedValue = 50;
 const speedMin = 1;
 const speedMax = 100;
 
+// Atualiza o indicador de conexão MQTT
+function updateConnectionStatus(status) {
+    const statusElement = document.getElementById('connectionStatus');
+    statusElement.classList.remove('connecting', 'connected', 'disconnected');
+    statusElement.classList.add(status);
+}
 
 // Conectar ao broker MQTT
 client.on('connect', function () {
     console.log('Conectado ao broker MQTT');
+    updateConnectionStatus('connected');
 
     client.subscribe(LEDTopic, function (err) {
         if (err) {
@@ -34,8 +41,24 @@ client.on('connect', function () {
     });
 });
 
+client.on('close', function () {
+    console.log('Conexão MQTT fechada');
+    updateConnectionStatus('disconnected');
+});
+
+client.on('offline', function () {
+    console.log('Cliente MQTT offline');
+    updateConnectionStatus('disconnected');
+});
+
+client.on('reconnect', function () {
+    console.log('Reconectando ao broker MQTT...');
+    updateConnectionStatus('connecting');
+});
+
 client.on('error', function (error) {
     console.error('Erro na conexão MQTT:', error);
+    updateConnectionStatus('disconnected');
 });
 
 async function fetchWeatherData() {
