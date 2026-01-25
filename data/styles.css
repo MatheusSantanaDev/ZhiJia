@@ -534,10 +534,12 @@ input[type="range"]::-moz-range-thumb {
         margin-top: 35px;
     }
     .connection-status {
-        position: static;
-        transform: none;
-        justify-content: center;
-        margin-bottom: 10px;
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        margin-bottom: 0;
     }
     .buttons-container {
         position: static;
