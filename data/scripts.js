@@ -12,6 +12,10 @@ let speedValue = 50;
 const speedMin = 1;
 const speedMax = 100;
 
+// Flags para controlar quando o usuário está arrastando (evita conflito com MQTT)
+let isUserDraggingLED = false;
+let isUserDraggingSpeed = false;
+
 // Atualiza o indicador de conexão MQTT
 function updateConnectionStatus(status) {
     const statusElement = document.getElementById('connectionStatus');
@@ -180,14 +184,27 @@ function updateWeatherUI(data) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    fetchWeatherData(); 
+    fetchWeatherData();
     document.getElementById('refresh-weather').addEventListener('click', fetchWeatherData);
     setInterval(fetchWeatherData, WEATHER_CONFIG.UPDATE_INTERVAL);
+
+    // Adiciona eventos de drag para os sliders de LED
+    const ledSliders = ['red', 'green', 'blue'];
+    ledSliders.forEach(id => {
+        const slider = document.getElementById(id);
+        slider.addEventListener('mousedown', () => { isUserDraggingLED = true; });
+        slider.addEventListener('mouseup', () => { isUserDraggingLED = false; });
+        slider.addEventListener('touchstart', () => { isUserDraggingLED = true; });
+        slider.addEventListener('touchend', () => { isUserDraggingLED = false; });
+    });
 });
 
 // Atualizar interface ao receber mensagens MQTT
 client.on('message', function (receivedTopic, message) {
     if (receivedTopic === LEDTopic) {
+        // Ignora atualizações se o usuário está arrastando o slider
+        if (isUserDraggingLED) return;
+
         const [red, green, blue] = message.toString().split(',').map(Number);
 
         // Atualiza os sliders
@@ -204,6 +221,9 @@ client.on('message', function (receivedTopic, message) {
     }
 
     if (receivedTopic === servoTopic) {
+        // Ignora atualizações se o usuário está arrastando o slider
+        if (isUserDraggingSpeed) return;
+
         try {
             const data = JSON.parse(message.toString());
             const speed = data.speed;
@@ -213,6 +233,9 @@ client.on('message', function (receivedTopic, message) {
             if (speedValue < speedMin) speedValue = speedMin;
             if (speedValue > speedMax) speedValue = speedMax;
             updateSpeedTrack();
+
+            // Atualiza feedback visual dos botões (direção)
+            updateMotorButtons(speed);
 
             console.log(`Comando do motor recebido: velocidade=${speed}`);
         } catch (e) {
@@ -258,10 +281,12 @@ function setSpeedFromPosition(clientX) {
 
 // Eventos de mouse
 speedSliderContainer.addEventListener('mousedown', (e) => {
+    isUserDraggingSpeed = true;
     setSpeedFromPosition(e.clientX);
 
     const onMouseMove = (e) => setSpeedFromPosition(e.clientX);
     const onMouseUp = () => {
+        isUserDraggingSpeed = false;
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
     };
@@ -272,6 +297,7 @@ speedSliderContainer.addEventListener('mousedown', (e) => {
 
 // Eventos de touch
 speedSliderContainer.addEventListener('touchstart', (e) => {
+    isUserDraggingSpeed = true;
     setSpeedFromPosition(e.touches[0].clientX);
 });
 
@@ -280,16 +306,37 @@ speedSliderContainer.addEventListener('touchmove', (e) => {
     setSpeedFromPosition(e.touches[0].clientX);
 });
 
+speedSliderContainer.addEventListener('touchend', () => {
+    isUserDraggingSpeed = false;
+});
+
 // Inicializa o slider
 updateSpeedTrack();
 
+// Atualiza feedback visual dos botões do motor
+function updateMotorButtons(speed) {
+    const openBtn = document.querySelector('.open-btn');
+    const closeBtn = document.querySelector('.close-btn');
+
+    openBtn.classList.remove('active');
+    closeBtn.classList.remove('active');
+
+    if (speed > 0) {
+        openBtn.classList.add('active');
+    } else if (speed < 0) {
+        closeBtn.classList.add('active');
+    }
+}
+
 // Função para abrir (velocidade positiva)
 function openMotor() {
+    updateMotorButtons(speedValue);
     sendMotorCommand(speedValue);
 }
 
 // Função para fechar (velocidade negativa)
 function closeMotor() {
+    updateMotorButtons(-speedValue);
     sendMotorCommand(-speedValue);
 }
 

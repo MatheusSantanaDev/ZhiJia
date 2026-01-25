@@ -505,6 +505,18 @@ input[type="range"]::-moz-range-thumb {
     background-color: #da190b;
 }
 
+.open-btn.active {
+    background-color: #2e7d32;
+    border-color: #1b5e20;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.6);
+}
+
+.close-btn.active {
+    background-color: #c62828;
+    border-color: #b71c1c;
+    box-shadow: 0 0 10px rgba(244, 67, 54, 0.6);
+}
+
 /* --- RESPONSIVIDADE PARA TELAS VERTICAIS --- */
 @media (max-width: 768px) {
 
