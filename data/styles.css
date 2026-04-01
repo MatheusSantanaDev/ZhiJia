@@ -517,6 +517,182 @@ input[type="range"]::-moz-range-thumb {
     box-shadow: 0 0 10px rgba(244, 67, 54, 0.6);
 }
 
+/* --- SPOTIFY CARD --- */
+.spotify-card {
+    background: linear-gradient(135deg, #1DB954 0%, #191414 100%);
+    color: white;
+    padding: 20px;
+}
+
+.spotify-not-connected {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100px;
+}
+
+.spotify-connect-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #1DB954;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.spotify-connect-btn:hover {
+    background-color: #1ed760;
+    transform: scale(1.05);
+}
+
+.spotify-icon {
+    width: 24px;
+    height: 24px;
+    fill: white;
+}
+
+.spotify-player {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.spotify-now-playing {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.spotify-album-art {
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.spotify-track-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.spotify-track-name {
+    font-weight: 600;
+    font-size: 1em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spotify-artist-name {
+    font-size: 0.85em;
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spotify-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+
+.spotify-ctrl-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.spotify-ctrl-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: white;
+}
+
+.spotify-ctrl-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.spotify-play-btn {
+    width: 56px;
+    height: 56px;
+    background: #1DB954;
+}
+
+.spotify-play-btn:hover {
+    background: #1ed760;
+}
+
+.spotify-play-btn svg {
+    width: 28px;
+    height: 28px;
+}
+
+.spotify-volume {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.volume-icon {
+    width: 20px;
+    height: 20px;
+    fill: white;
+    opacity: 0.8;
+}
+
+.spotify-volume input[type="range"] {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    outline: none;
+}
+
+.spotify-volume input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #1DB954;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.spotify-volume input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.spotify-volume input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: #1DB954;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
 /* --- RESPONSIVIDADE PARA TELAS VERTICAIS --- */
 @media (max-width: 768px) {
 

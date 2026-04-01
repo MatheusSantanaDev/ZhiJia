@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <mqtt_client.h>
 #include <ESP32Servo.h>
+#include "TuyaLocal.h"
 
 // Pinos do LED RGB
 const int ledPinRed = 25;
@@ -31,10 +32,18 @@ String mqttServer = "";
 int mqttPort = 1883;
 int serverPort = 80;
 
+// Configuração da fita Tuya
+String stripIP = "";
+String stripDeviceId = "";
+String stripLocalKey = "";
+TuyaLocal* strip = nullptr;
+
 WebServer server(80);
 esp_mqtt_client_handle_t mqttClient;
-const char* mqttTopic = "home/led/color";
-const char* servoTopic = "home/servo/angle";
+const char* mqttTopic       = "home/led/color";
+const char* servoTopic      = "home/servo/angle";
+const char* stripColorTopic = "home/strip/color";
+const char* stripPowerTopic = "home/strip/power";
 
 
 // Conexão WiFi ========================================================
@@ -180,12 +189,14 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             Serial.println("[MQTT] Conectado ao broker!");
-            // Inscreve-se no tópico do LED
             esp_mqtt_client_subscribe(event->client, mqttTopic, 0);
             Serial.printf("[MQTT] Inscrito no tópico: %s\n", mqttTopic);
-            // Inscreve-se no tópico do Servo
             esp_mqtt_client_subscribe(event->client, servoTopic, 0);
             Serial.printf("[MQTT] Inscrito no tópico: %s\n", servoTopic);
+            esp_mqtt_client_subscribe(event->client, stripColorTopic, 0);
+            Serial.printf("[MQTT] Inscrito no tópico: %s\n", stripColorTopic);
+            esp_mqtt_client_subscribe(event->client, stripPowerTopic, 0);
+            Serial.printf("[MQTT] Inscrito no tópico: %s\n", stripPowerTopic);
             break;
 
         case MQTT_EVENT_DISCONNECTED:
@@ -220,6 +231,24 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
 
                 int speed = doc["speed"]; // Positivo = abrir, Negativo = fechar
                 setServoSpeed(speed);
+
+            } else if (strcmp(topic, stripColorTopic) == 0) {
+                if (strip == nullptr) break;
+                int r, g, b;
+                if (sscanf(payload, "%d,%d,%d", &r, &g, &b) == 3) {
+                    strip->setColor(r, g, b);
+                    Serial.printf("[STRIP] Cor: R=%d G=%d B=%d\n", r, g, b);
+                }
+
+            } else if (strcmp(topic, stripPowerTopic) == 0) {
+                if (strip == nullptr) break;
+                if (strcmp(payload, "on") == 0) {
+                    strip->setPower(true);
+                    Serial.println("[STRIP] Ligada");
+                } else if (strcmp(payload, "off") == 0) {
+                    strip->setPower(false);
+                    Serial.println("[STRIP] Desligada");
+                }
             }
             break;
         }
@@ -314,13 +343,18 @@ void loadConfig() {
     // Carregar configurações
     strlcpy(ssid, doc["wifi_ssid"], sizeof(ssid));
     strlcpy(password, doc["wifi_password"], sizeof(password));
-    adminUser = doc["admin_user"].as<String>();
+    adminUser     = doc["admin_user"].as<String>();
     adminPassword = doc["admin_password"].as<String>();
-    duckDNSToken = doc["duckdns_token"].as<String>();
+    duckDNSToken  = doc["duckdns_token"].as<String>();
     duckDNSDomain = doc["duckdns_domain"].as<String>();
-    mqttServer = doc["mqtt_server"].as<String>();
-    mqttPort = doc["mqtt_port"];
-    serverPort = doc["server_port"];
+    mqttServer    = doc["mqtt_server"].as<String>();
+    mqttPort      = doc["mqtt_port"];
+    serverPort    = doc["server_port"];
+
+    // Fita LED Tuya
+    stripIP       = doc["strip_ip"].as<String>();
+    stripDeviceId = doc["strip_device_id"].as<String>();
+    stripLocalKey = doc["strip_local_key"].as<String>();
 
     configFile.close();
 }
@@ -333,6 +367,11 @@ void initSystems() {
     loadConfig();
     setupLED();
     setupServo();
+
+    if (!stripIP.isEmpty() && !stripDeviceId.isEmpty() && !stripLocalKey.isEmpty()) {
+        strip = new TuyaLocal(stripIP, stripDeviceId, stripLocalKey);
+        Serial.printf("[STRIP] Fita configurada em %s\n", stripIP.c_str());
+    }
 }
 
 void setup() {

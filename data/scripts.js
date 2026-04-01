@@ -1,6 +1,8 @@
 const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt'); // Broker público para teste
-const LEDTopic = 'home/led/color';
-const servoTopic = 'home/servo/angle';
+const LEDTopic        = 'home/led/color';
+const servoTopic      = 'home/servo/angle';
+const stripColorTopic = 'home/strip/color';
+const stripPowerTopic = 'home/strip/power';
 
 const WEATHER_CONFIG = {
     ZIP_CODE: "38414-553",
@@ -13,7 +15,7 @@ const speedMin = 1;
 const speedMax = 100;
 
 // Flags para controlar quando o usuário está arrastando (evita conflito com MQTT)
-let isUserDraggingLED = false;
+let isUserDraggingLED   = false;
 let isUserDraggingSpeed = false;
 
 // Atualiza o indicador de conexão MQTT
@@ -43,6 +45,7 @@ client.on('connect', function () {
             console.log('Inscrito no tópico:', servoTopic);
         }
     });
+
 });
 
 client.on('close', function () {
@@ -188,15 +191,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('refresh-weather').addEventListener('click', fetchWeatherData);
     setInterval(fetchWeatherData, WEATHER_CONFIG.UPDATE_INTERVAL);
 
-    // Adiciona eventos de drag para os sliders de LED
-    const ledSliders = ['red', 'green', 'blue'];
-    ledSliders.forEach(id => {
+    // Eventos de drag para os sliders de LED
+    ['red', 'green', 'blue'].forEach(id => {
         const slider = document.getElementById(id);
         slider.addEventListener('mousedown', () => { isUserDraggingLED = true; });
-        slider.addEventListener('mouseup', () => { isUserDraggingLED = false; });
-        slider.addEventListener('touchstart', () => { isUserDraggingLED = true; });
-        slider.addEventListener('touchend', () => { isUserDraggingLED = false; });
+        slider.addEventListener('mouseup',   () => { isUserDraggingLED = false; });
+        slider.addEventListener('touchstart',() => { isUserDraggingLED = true; });
+        slider.addEventListener('touchend',  () => { isUserDraggingLED = false; });
     });
+
 });
 
 // Atualizar interface ao receber mensagens MQTT
@@ -254,9 +257,10 @@ function updateLED() {
     document.body.style.backgroundColor = bgColor;
     document.getElementById('title').style.color = _getComplementaryColor(red, green, blue);
 
-    // Publica a nova cor no tópico MQTT
+    // Publica a nova cor para o LED e para a fita simultaneamente
     if (client.connected) {
         client.publish(LEDTopic, `${red},${green},${blue}`);
+        client.publish(stripColorTopic, `${red},${green},${blue}`);
     } else {
         console.error('MQTT não está conectado.');
     }
@@ -354,9 +358,12 @@ function sendMotorCommand(speed) {
 }
 
 // Botoes
+// ── Botões preset ─────────────────────────────────────────────────────────────
+
 function turnOffLights() {
     setLEDValues(0, 0, 0);
     document.getElementById('title').style.color = _getComplementaryColor(0, 0, 0);
+    if (client.connected) client.publish(stripPowerTopic, 'off');
 }
 function whiteLight() {
     setLEDValues(255, 255, 255);
