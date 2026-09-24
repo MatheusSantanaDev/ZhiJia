@@ -26,15 +26,15 @@ ZhiJia/
 │       ├── config.example.json
 │       └── icons/
 │
-├── infra/                   # Infraestrutura (Docker)
-│   ├── docker-compose.yml   # Orquestração dos serviços
-│   ├── mosquitto/
-│   │   ├── config/mosquitto.conf
-│   │   ├── data/
-│   │   └── log/
-│   └── nginx/
-│       └── nginx.conf
+├── mosquitto/               # Configuração MQTT Broker
+│   ├── config/mosquitto.conf
+│   ├── data/
+│   └── log/
 │
+├── nginx/                   # Configuração Nginx (Reverse Proxy)
+│   └── nginx.conf
+│
+├── docker-compose.yml       # Orquestração (raiz do projeto)
 ├── .dockerignore
 ├── .gitignore
 └── README.md
@@ -70,7 +70,6 @@ ZhiJia/
 ## Subindo a Infraestrutura Local
 
 ```bash
-cd infra
 docker-compose up -d
 ```
 
@@ -148,7 +147,7 @@ Para desenvolvimento com hot-reload, use um servidor local apontando para `front
 
 ```bash
 # Subir infraestrutura
-cd infra && docker-compose up -d
+docker-compose up -d
 
 # Logs
 docker-compose logs -f mosquitto
