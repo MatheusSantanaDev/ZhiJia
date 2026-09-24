@@ -37,6 +37,10 @@ Thumbs.db
 /data/config.json
 /frontend/public/config.json
 
+# Mosquitto runtime data e logs
+mosquitto/data/
+mosquitto/log/
+
 # Arquivos relacionados ao PlatformIO
 **/.pio
 **/.piolibdeps
