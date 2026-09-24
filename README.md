@@ -1,4 +1,4 @@
-# ZhiJia (智家) - Smart Home
+# ZhiJia - Smart Home
 
 Projeto pessoal de automação residencial utilizando ESP32.
 
