@@ -1,0 +1,15 @@
+.git
+.gitignore
+.vscode
+README.md
+*.log
+.DS_Store
+
+# Firmware (not needed for docker build)
+firmware/.pio
+firmware/src
+firmware/lib
+firmware/include
+firmware/test
+firmware/platformio.ini
+firmware/extra_script.py

@@ -1,4 +1,7 @@
-const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt'); // Broker público para teste
+// Configuração do broker MQTT - detecta automaticamente o host atual
+const MQTT_HOST = window.location.hostname || 'localhost';
+const MQTT_WS_PORT = 9001;
+const client = mqtt.connect(`ws://${MQTT_HOST}:${MQTT_WS_PORT}/mqtt`);
 const LEDTopic        = 'home/led/color';
 const servoTopic      = 'home/servo/angle';
 const stripColorTopic = 'home/strip/color';

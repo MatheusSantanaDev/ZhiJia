@@ -5,7 +5,7 @@
     "admin_user": "admin",
     "admin_password": "admin",
 
-    "mqtt_server": "mqtt://broker.hivemq.com",
+    "mqtt_server": "mqtt://192.168.0.XXX",
     "mqtt_port": 1883,
 
     "duckdns_token": "SEU_TOKEN_DUCKDNS",
