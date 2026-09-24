@@ -1,4 +1,4 @@
-# Automaçao Residencial
+# ZhiJia (智家) - Smart Home
 
 Projeto pessoal de automação residencial utilizando ESP32.
 
@@ -9,7 +9,7 @@ Projeto pessoal de automação residencial utilizando ESP32.
 ### Estrutura de Arquivos
 
 ```
-LED/
+ZhiJia/
 ├── src/main.cpp          # Código principal ESP32
 ├── data/
 │   ├── index.html        # Interface web
@@ -32,14 +32,14 @@ LED/
 │   - Controle Motor  │     │  wss://8884/mqtt    │
 │   - Previsão Tempo  │     └─────────┬───────────┘
 └─────────────────────┘               │
-                                      ▼
-                          ┌───────────────────────┐
-                          │       ESP32           │
-                          │  - LED RGB (PWM)      │
-                          │  - Servo Motor        │
-                          │  - Web Server         │
-                          │  - Duck DNS           │
-                          └───────────────────────┘
+                                       ▼
+                           ┌───────────────────────┐
+                           │       ESP32           │
+                           │  - RGB LED (PWM)      │
+                           │  - Servo Motor        │
+                           │  - Web Server         │
+                           │  - Duck DNS           │
+                           └───────────────────────┘
 ```
 
 ---
@@ -48,7 +48,7 @@ LED/
 
 | Funcionalidade | Descrição |
 |----------------|-----------|
-| **LED RGB** | Controle PWM nos GPIOs 25/26/27, valores 0-255 por canal |
+| **RGB LED** | Controle PWM nos GPIOs 25/26/27, valores 0-255 por canal |
 | **Servo Motor** | GPIO 15, velocidade -100 a +100|
 | **Web Server** | HTTP Basic Auth, serve arquivos do SPIFFS |
 | **MQTT** | Pub/Sub para `home/led/color` e `home/servo/angle` |
@@ -84,7 +84,7 @@ LED/
 ### Estado do Desenvolvimento
 
 **Concluído:**
-- Controle de LEDs (desligar, branco, amarelado)
+- Controle de RGB LED (desligar, branco, amarelado)
 - Sincronização entre abas via MQTT
 - Card de previsão do tempo funcional
 - Interface responsiva para mobile

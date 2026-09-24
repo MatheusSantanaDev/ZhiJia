@@ -33,6 +33,9 @@ Thumbs.db
 *.ini
 *.config
 
+# Configurações sensíveis (credenciais WiFi, MQTT, DuckDNS, Tuya)
+/data/config.json
+
 # Arquivos relacionados ao PlatformIO
 **/.pio
 **/.piolibdeps

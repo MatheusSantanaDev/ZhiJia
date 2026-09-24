@@ -1,0 +1,18 @@
+{
+    "wifi_ssid": "SEU_SSID",
+    "wifi_password": "SUA_SENHA",
+
+    "admin_user": "admin",
+    "admin_password": "admin",
+
+    "mqtt_server": "mqtt://broker.hivemq.com",
+    "mqtt_port": 1883,
+
+    "duckdns_token": "SEU_TOKEN_DUCKDNS",
+    "duckdns_domain": "seu-dominio.duckdns.org",
+    "server_port": 1420,
+
+    "strip_ip": "192.168.0.XXX",
+    "strip_device_id": "SEU_DEVICE_ID_TUYA",
+    "strip_local_key": "SUA_LOCAL_KEY_TUYA"
+}

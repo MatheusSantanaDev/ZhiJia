@@ -213,11 +213,11 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
 
             // Verifica em qual tópico a mensagem chegou
             if (strcmp(topic, mqttTopic) == 0) {
-                // Lógica do LED
+                // Lógica do RGB LED
                 int r, g, b;
                 if (sscanf(payload, "%d,%d,%d", &r, &g, &b) == 3) {
                     setColor(r, g, b);
-                    Serial.printf("[LED] Nova cor: R=%d, G=%d, B=%d\n", r, g, b);
+                    Serial.printf("[RGB] Nova cor: R=%d, G=%d, B=%d\n", r, g, b);
                 }
             } else if (strcmp(topic, servoTopic) == 0) {
                 JsonDocument doc;
