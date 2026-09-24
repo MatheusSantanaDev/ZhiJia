@@ -35,6 +35,7 @@ Thumbs.db
 
 # Configurações sensíveis (credenciais WiFi, MQTT, DuckDNS, Tuya)
 /data/config.json
+/frontend/public/config.json
 
 # Arquivos relacionados ao PlatformIO
 **/.pio
