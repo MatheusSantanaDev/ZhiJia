@@ -1,11 +1,13 @@
-import { MQTT_CONFIG } from '../config.js';
+import { getConfigValue } from '../utils/config.js';
 import { updateConnectionStatus } from './status.js';
 
 let client = null;
 const subscribers = new Map();
 
 export function createMqttClient() {
-    const url = `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.wsPort}/mqtt`;
+    const host = getConfigValue('mqtt_host', window.location.hostname || 'localhost');
+    const wsPort = getConfigValue('mqtt_ws_port', 9001);
+    const url = `ws://${host}:${wsPort}/mqtt`;
     client = mqtt.connect(url);
     setupEventHandlers();
     return client;
@@ -51,7 +53,13 @@ function setupEventHandlers() {
 }
 
 function subscribeToTopics() {
-    Object.values(MQTT_CONFIG.topics).forEach(topic => {
+    const topics = getConfigValue('mqtt_topics', {
+        led: 'home/led/color',
+        servo: 'home/servo/angle',
+        stripColor: 'home/strip/color',
+        stripPower: 'home/strip/power'
+    });
+    Object.values(topics).forEach(topic => {
         client.subscribe(topic, (err) => {
             if (err) {
                 console.error(`Erro ao se inscrever no tópico ${topic}:`, err);

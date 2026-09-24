@@ -1,10 +1,11 @@
-import { WEATHER_CONFIG } from '../config.js';
+import { getConfigValue } from '../utils/config.js';
 import { getLocationDataFromCep, getCoordsFromCity } from '../utils/location.js';
 
 export async function fetchWeatherData() {
     console.log("Iniciando busca de dados...");
     try {
-        const cep = WEATHER_CONFIG.zipCode.replace(/\D/g, '');
+        const zipCode = getConfigValue('weather_zip_code', '38414-553');
+        const cep = zipCode.replace(/\D/g, '');
 
         const locationInfo = await getLocationDataFromCep(cep);
         if (!locationInfo) throw new Error("CEP inválido ou não encontrado na BrasilAPI.");
