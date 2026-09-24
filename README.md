@@ -20,11 +20,27 @@ ZhiJia/
 ├── frontend/                # Interface Web (software)
 │   └── public/              # Arquivos estáticos servidos pelo Nginx
 │       ├── index.html
-│       ├── scripts.js       # Lógica MQTT, weather, UI
-│       ├── spotify.js       # Integração Spotify
 │       ├── styles.css
 │       ├── config.example.json
-│       └── icons/
+│       ├── icons/
+│       └── js/              # Módulos ES6 organizados por domínio
+│           ├── app.js               # Entry point
+│           ├── config.js            # Constantes e configuração
+│           ├── mqtt/
+│           │   ├── client.js        # Conexão MQTT + pub/sub
+│           │   └── status.js        # Status de conexão UI
+│           ├── led/
+│           │   └── controller.js    # RGB LED + presets
+│           ├── servo/
+│           │   └── controller.js    # Servo motor + speed slider
+│           ├── weather/
+│           │   ├── api.js           # BrasilAPI + Open-Meteo
+│           │   └── ui.js            # Renderização do card tempo
+│           ├── spotify/
+│           │   └── spotify.js       # OAuth PKCE + Web API
+│           └── utils/
+│               ├── color.js         # RGB/HSL conversões
+│               └── location.js      # CEP/geocoding
 │
 ├── mosquitto/               # Configuração MQTT Broker
 │   ├── config/mosquitto.conf
@@ -113,7 +129,13 @@ Serviços disponíveis:
 
 Os arquivos em `frontend/public/` são servidos diretamente pelo Nginx. Edite e recarregue o browser.
 
-Para desenvolvimento com hot-reload, use um servidor local apontando para `frontend/public/`.
+**Arquitetura modular (ES Modules):**
+- Cada feature tem seu próprio módulo (`led/`, `servo/`, `weather/`, `spotify/`, `mqtt/`)
+- `app.js` é o entry point que inicializa tudo
+- `config.js` centraliza constantes (tópicos, portas, ícones)
+- `utils/` contém funções puras reutilizáveis (cor, localização)
+
+Para desenvolvimento com hot-reload, use um servidor local apontando para `frontend/public/` (ex: `npx serve frontend/public` ou VS Code Live Server).
 
 ---
 
