@@ -231,16 +231,28 @@ async function spotifyApi(endpoint, method = 'GET', body = null) {
 }
 
 async function updateSpotifyNowPlaying() {
-    const data = await spotifyApi('/me/player/currently-playing');
+    const data = await spotifyApi('/me/player/currently-playing?additional_types=episode');
 
     if (data && data.item) {
-        document.getElementById('spotifyTrackName').textContent = data.item.name;
-        document.getElementById('spotifyArtistName').textContent = data.item.artists.map(a => a.name).join(', ');
-
-        if (data.item.album.images.length > 0) {
-            document.getElementById('spotifyAlbumArt').src = data.item.album.images[0].url;
+        // currently-playing pode não ter device, busca no player
+        const playerData = await spotifyApi('/me/player');
+        renderSpotifyItem(data.item, data.is_playing, playerData?.device);
+        return;
+    } else if (data && data.currently_playing_type === 'episode') {
+        // Episodio mas item é null - tentar buscar no player state
+        const playerData = await spotifyApi('/me/player');
+        
+        if (playerData && playerData.item && playerData.item.type === 'episode') {
+            // Achou no player state!
+            renderSpotifyItem(playerData.item, data.is_playing, playerData.device);
+            return;
         }
-
+        
+        // Fallback: nenhum dado disponível
+        document.getElementById('spotifyTrackName').textContent = 'Episódio de podcast';
+        document.getElementById('spotifyArtistName').textContent = 'Detalhes indisponíveis (limitação da API)';
+        document.getElementById('spotifyAlbumArt').src = './icons/spotify-podcast.svg';
+        
         const isPlaying = data.is_playing;
         document.getElementById('spotifyPlayIcon').style.display = isPlaying ? 'none' : 'block';
         document.getElementById('spotifyPauseIcon').style.display = isPlaying ? 'block' : 'none';
@@ -254,25 +266,67 @@ async function updateSpotifyNowPlaying() {
     }
 }
 
+function renderSpotifyItem(item, isPlaying, device) {
+    const isEpisode = item.type === 'episode';
+    
+    document.getElementById('spotifyTrackName').textContent = item.name;
+    
+    if (isEpisode) {
+        // Podcast: mostra nome do show
+        const showName = item.show?.name || 'Podcast';
+        const showPublisher = item.show?.publisher || '';
+        document.getElementById('spotifyArtistName').textContent = showPublisher 
+            ? `${showName} • ${showPublisher}` 
+            : showName;
+    } else {
+        // Música: mostra artistas
+        document.getElementById('spotifyArtistName').textContent = item.artists.map(a => a.name).join(', ');
+    }
+
+    // Imagem: episódio usa item.images, música usa album.images
+    let imageUrl = '';
+    if (isEpisode && item.images?.length > 0) {
+        imageUrl = item.images[0].url;
+    } else if (!isEpisode && item.album?.images?.length > 0) {
+        imageUrl = item.album.images[0].url;
+    } else if (isEpisode && item.show?.images?.length > 0) {
+        imageUrl = item.show.images[0].url;
+    }
+    
+    if (imageUrl) {
+        document.getElementById('spotifyAlbumArt').src = imageUrl;
+    } else if (isEpisode) {
+        document.getElementById('spotifyAlbumArt').src = './icons/spotify-podcast.svg';
+    }
+
+    document.getElementById('spotifyPlayIcon').style.display = isPlaying ? 'none' : 'block';
+    document.getElementById('spotifyPauseIcon').style.display = isPlaying ? 'block' : 'none';
+
+    // Atualiza slider de volume se device tiver volume
+    if (device) {
+        const volumePercent = device.volume_percent ?? device.volume ?? device.volumePercent;
+        if (volumePercent !== undefined) {
+            const volumeSlider = document.getElementById('spotifyVolume');
+            if (volumeSlider && Math.abs(volumeSlider.value - volumePercent) > 1) {
+                volumeSlider.value = volumePercent;
+            }
+        }
+    }
+}
+
 export async function spotifyTogglePlay() {
     const data = await spotifyApi('/me/player');
-
-    console.log('[Spotify] Player state:', data);
 
     let device = data?.device;
 
     // Se não tem device no player, busca na lista de devices
     if (!device) {
-        console.log('[Spotify] Buscando devices disponíveis...');
         const devicesData = await spotifyApi('/me/player/devices');
-        console.log('[Spotify] Devices response:', devicesData);
         
         if (devicesData === null) {
-            console.error('[Spotify] Falha ao buscar devices - spotifyApi retornou null (verifique logs acima para erro 403/401)');
+            console.error('[Spotify] Falha ao buscar devices - spotifyApi retornou null');
         } else if (devicesData && devicesData.devices && devicesData.devices.length > 0) {
-            // Procura device ativo ou o primeiro disponível
             device = devicesData.devices.find(d => d.is_active) || devicesData.devices[0];
-            console.log('[Spotify] Device encontrado na lista:', device.name, device.is_active, device.id);
         } else {
             console.warn('[Spotify] Lista de devices vazia:', devicesData);
         }
@@ -284,11 +338,8 @@ export async function spotifyTogglePlay() {
         return;
     }
 
-    console.log('[Spotify] Device ativo:', device.name, device.type, device.supports_volume, device.id);
-
     // Tenta transferir playback para este device se não for o ativo
     if (!device.is_active) {
-        console.log('[Spotify] Transferindo playback para:', device.name);
         await spotifyApi('/me/player', 'PUT', { device_ids: [device.id] });
     }
 
@@ -311,8 +362,35 @@ export async function spotifyPrevious() {
     setTimeout(updateSpotifyNowPlaying, 300);
 }
 
+export async function spotifySeekForward() {
+    const data = await spotifyApi('/me/player');
+    if (data && data.progress_ms !== undefined) {
+        const newPosition = data.progress_ms + 15000; // +15 segundos
+        await spotifyApi(`/me/player/seek?position_ms=${newPosition}`, 'PUT');
+        setTimeout(updateSpotifyNowPlaying, 300);
+    }
+}
+
+export async function spotifySeekBackward() {
+    const data = await spotifyApi('/me/player');
+    if (data && data.progress_ms !== undefined) {
+        const newPosition = Math.max(0, data.progress_ms - 15000); // -15 segundos (mínimo 0)
+        await spotifyApi(`/me/player/seek?position_ms=${newPosition}`, 'PUT');
+        setTimeout(updateSpotifyNowPlaying, 300);
+    }
+}
+
 export async function spotifySetVolume(value) {
     await spotifyApi(`/me/player/volume?volume_percent=${value}`, 'PUT');
+}
+
+// Debounced volume setter (evita rate limit 429)
+let volumeDebounceTimer = null;
+export function spotifySetVolumeDebounced(value) {
+    if (volumeDebounceTimer) clearTimeout(volumeDebounceTimer);
+    volumeDebounceTimer = setTimeout(() => {
+        spotifySetVolume(value);
+    }, 300); // 300ms debounce
 }
 
 function checkSpotifyCallback() {
@@ -320,7 +398,6 @@ function checkSpotifyCallback() {
     const code = urlParams.get('code');
 
     if (code) {
-        console.log('[Spotify] Callback detectado com code');
         window.history.replaceState({}, document.title, window.location.pathname);
         exchangeCodeForToken(code);
     }
@@ -329,7 +406,6 @@ function checkSpotifyCallback() {
 async function initSpotify() {
     try {
         await initSpotifyConfig();
-        console.log('[Spotify] Config inicializado');
     } catch (error) {
         console.error('[Spotify] Falha ao inicializar config:', error);
         return;
@@ -342,19 +418,19 @@ async function initSpotify() {
 
     if (savedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry)) {
         spotifyAccessToken = savedToken;
-        console.log('[Spotify] Token válido encontrado no storage');
         showSpotifyPlayer();
         await updateSpotifyNowPlaying();
         startSpotifyRefresh();
-        setInterval(updateSpotifyNowPlaying, 5000);
+        const pollInterval = getConfigValue('spotify_poll_interval', 2000);
+        setInterval(updateSpotifyNowPlaying, pollInterval);
     } else if (localStorage.getItem('spotify_refresh_token')) {
-        console.log('[Spotify] Tentando renovar token expirado...');
         await refreshSpotifyToken();
         if (spotifyAccessToken) {
             showSpotifyPlayer();
             await updateSpotifyNowPlaying();
             startSpotifyRefresh();
-            setInterval(updateSpotifyNowPlaying, 5000);
+            const pollInterval = getConfigValue('spotify_poll_interval', 2000);
+            setInterval(updateSpotifyNowPlaying, pollInterval);
         }
     }
 }

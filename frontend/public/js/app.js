@@ -63,5 +63,7 @@ import('./spotify/spotify.js').then(m => {
     window.spotifyTogglePlay = m.spotifyTogglePlay;
     window.spotifyPrevious = m.spotifyPrevious;
     window.spotifyNext = m.spotifyNext;
-    window.spotifySetVolume = m.spotifySetVolume;
+    window.spotifySeekForward = m.spotifySeekForward;
+    window.spotifySeekBackward = m.spotifySeekBackward;
+    window.spotifySetVolume = m.spotifySetVolumeDebounced;
 });
