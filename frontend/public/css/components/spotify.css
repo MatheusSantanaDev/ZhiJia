@@ -1,0 +1,193 @@
+/* ============================================
+   COMPONENT: Spotify Card
+   ============================================ */
+
+.spotify-card {
+  background: linear-gradient(135deg, var(--color-bg-spotify-start) 0%, var(--color-bg-spotify-end) 100%);
+  color: var(--color-text-inverse);
+  padding: var(--space-xl);
+}
+
+.spotify-not-connected {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100px;
+}
+
+.spotify-connect-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  background-color: var(--color-spotify-green);
+  color: var(--color-text-inverse);
+  border: none;
+  padding: var(--spotify-connect-padding);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.spotify-connect-btn:hover {
+  background-color: var(--color-spotify-green-hover);
+  transform: scale(1.05);
+}
+
+.spotify-icon {
+  width: 24px;
+  height: 24px;
+  fill: var(--color-text-inverse);
+}
+
+.spotify-player {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.spotify-now-playing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.spotify-album-art {
+  width: var(--spotify-album-size);
+  height: var(--spotify-album-size);
+  border-radius: var(--spotify-album-radius);
+  object-fit: cover;
+  box-shadow: var(--shadow-spotify-album);
+}
+
+.spotify-track-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.spotify-track-name {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-artist-name {
+  font-size: var(--font-size-sm);
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.spotify-ctrl-btn {
+  background: var(--color-bg-overlay-spotify);
+  border: none;
+  border-radius: var(--radius-full);
+  width: var(--spotify-ctrl-btn-size);
+  height: var(--spotify-ctrl-btn-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.spotify-ctrl-btn svg {
+  width: var(--spotify-ctrl-btn-icon-size);
+  height: var(--spotify-ctrl-btn-icon-size);
+  fill: var(--color-text-inverse);
+}
+
+.spotify-ctrl-btn:hover {
+  background: var(--color-bg-overlay-spotify-hover);
+  transform: scale(1.1);
+}
+
+.spotify-ctrl-btn:focus-visible {
+  outline: 2px solid var(--color-spotify-green);
+  outline-offset: 2px;
+}
+
+.spotify-play-btn {
+  width: var(--spotify-play-btn-size);
+  height: var(--spotify-play-btn-size);
+  background: var(--color-spotify-green);
+}
+
+.spotify-play-btn:hover {
+  background: var(--color-spotify-green-hover);
+}
+
+.spotify-play-btn svg {
+  width: var(--spotify-play-btn-icon-size);
+  height: var(--spotify-play-btn-icon-size);
+}
+
+.spotify-volume {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.volume-icon {
+  width: var(--volume-icon-size);
+  height: var(--volume-icon-size);
+  fill: var(--color-text-inverse);
+  opacity: 0.8;
+}
+
+.spotify-volume input[type="range"] {
+  flex: 1;
+  height: var(--volume-slider-height);
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--color-bg-overlay-spotify);
+  border-radius: 2px;
+  outline: none;
+}
+
+.spotify-volume input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--volume-thumb-size);
+  height: var(--volume-thumb-size);
+  background: var(--color-spotify-green);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.spotify-volume input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.spotify-volume input[type="range"]::-moz-range-thumb {
+  width: var(--volume-thumb-size);
+  height: var(--volume-thumb-size);
+  background: var(--color-spotify-green);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  border: none;
+}
+
+.spotify-volume input[type="range"]:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--color-spotify-green);
+  outline-offset: 2px;
+}
+
+.spotify-volume input[type="range"]:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--color-spotify-green);
+  outline-offset: 2px;
+}

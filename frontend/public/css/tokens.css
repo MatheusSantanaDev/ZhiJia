@@ -1,0 +1,156 @@
+/* ============================================
+   DESIGN TOKENS - Foundation of the design system
+   ============================================ */
+
+:root {
+  /* --- Colors --- */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f7f9fc;
+  --color-bg-card: #dcdcdc; /* gainsboro */
+  --color-bg-spotify-start: #1DB954;
+  --color-bg-spotify-end: #191414;
+  --color-bg-overlay-light: rgba(0, 0, 0, 0.05);
+  --color-bg-overlay-dark: rgba(0, 0, 0, 0.1);
+  --color-bg-overlay-spotify: rgba(255, 255, 255, 0.1);
+  --color-bg-overlay-spotify-hover: rgba(255, 255, 255, 0.2);
+
+  --color-text-primary: #000000;
+  --color-text-secondary: #333333;
+  --color-text-muted: #555555;
+  --color-text-inverse: #ffffff;
+
+  --color-border-light: rgba(0, 0, 0, 0.1);
+  --color-border-medium: #cccccc;
+  --color-border-dark: #000000;
+
+  --color-brand-green: #4CAF50;
+  --color-brand-green-dark: #45a049;
+  --color-brand-green-darker: #2e7d32;
+  --color-brand-green-darkest: #1b5e20;
+  --color-brand-red: #f44336;
+  --color-brand-red-dark: #da190b;
+  --color-brand-red-darker: #c62828;
+  --color-brand-red-darkest: #b71c1c;
+  --color-brand-yellow: #ffc107;
+  --color-brand-yellow-dark: #e6a800;
+  --color-spotify-green: #1DB954;
+  --color-spotify-green-hover: #1ed760;
+
+  --color-status-connecting: #ffc107;
+  --color-status-connected: #4CAF50;
+  --color-status-disconnected: #f44336;
+
+  --color-slider-red-track: rgb(233, 42, 42);
+  --color-slider-red-thumb: rgb(255, 0, 0);
+  --color-slider-green-track: rgb(35, 236, 35);
+  --color-slider-green-thumb: rgb(0, 255, 0);
+  --color-slider-blue-track: rgb(48, 138, 240);
+  --color-slider-blue-thumb: rgb(0, 0, 255);
+
+  --color-shadow-card: rgba(0, 0, 0, 0.15);
+  --color-shadow-spotify: rgba(0, 0, 0, 0.3);
+  --color-shadow-btn-active-green: rgba(76, 175, 80, 0.6);
+  --color-shadow-btn-active-red: rgba(244, 67, 54, 0.6);
+  --color-shadow-pulse-yellow: rgba(255, 193, 7, 0.6);
+  --color-shadow-pulse-green: rgba(76, 175, 80, 0.6);
+
+  /* --- Spacing --- */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 10px;
+  --space-lg: 15px;
+  --space-xl: 20px;
+  --space-2xl: 30px;
+  --space-3xl: 35px;
+
+  /* --- Typography --- */
+  --font-family-base: sans-serif;
+  --font-size-xs: 0.75em;
+  --font-size-sm: 0.8em;
+  --font-size-base: 1em;
+  --font-size-lg: 1.1em;
+  --font-size-xl: 1.2em;
+  --font-size-2xl: 1.4em;
+  --font-size-3xl: 3em;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1;
+  --line-height-normal: 1.5;
+
+  /* --- Border Radius --- */
+  --radius-sm: 3px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 20px;
+  --radius-full: 50%;
+  --radius-pill: 25px;
+
+  /* --- Transitions --- */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
+
+  /* --- Shadows --- */
+  --shadow-card: 0 4px 20px var(--color-shadow-card);
+  --shadow-spotify-album: 0 4px 10px var(--color-shadow-spotify);
+  --shadow-btn-active-green: 0 0 10px var(--color-shadow-btn-active-green);
+  --shadow-btn-active-red: 0 0 10px var(--color-shadow-btn-active-red);
+
+  /* --- Z-index --- */
+  --z-index-header: 100;
+  --z-index-connection: 1000;
+
+  /* --- Layout --- */
+  --max-width-content: 800px;
+  --card-min-width: 200px;
+  --card-max-width: 280px;
+  --card-min-height: 140px;
+
+  /* --- Slider --- */
+  --slider-height: 10px;
+  --slider-thumb-size: 15px;
+  --slider-thumb-border: 2px solid white;
+  --speed-slider-height: 25px;
+
+  /* --- Button --- */
+  --btn-icon-size: 50px;
+  --btn-icon-img-ratio: 80%;
+  --refresh-btn-size: 40px;
+  --refresh-btn-img-size: 20px;
+  --motor-btn-padding: 12px 20px;
+  --spotify-connect-padding: 12px 24px;
+  --spotify-ctrl-btn-size: 44px;
+  --spotify-ctrl-btn-icon-size: 24px;
+  --spotify-play-btn-size: 56px;
+  --spotify-play-btn-icon-size: 28px;
+  --volume-icon-size: 20px;
+  --volume-slider-height: 4px;
+  --volume-thumb-size: 14px;
+
+  /* --- Weather --- */
+  --weather-icon-large: 64px;
+  --weather-icon-day: 32px;
+  --weather-icon-detail-sm: 14px;
+  --weather-icon-detail-md: 16px;
+  --weather-icon-detail-lg: 22px;
+  --weather-icon-detail-xl: 40px;
+
+  /* --- Spotify --- */
+  --spotify-album-size: 64px;
+  --spotify-album-radius: 8px;
+}
+
+/* Dark mode support (optional, for future) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-primary: #1a1a1a;
+    --color-bg-secondary: #242424;
+    --color-bg-card: #2d2d2d;
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #e0e0e0;
+    --color-text-muted: #aaaaaa;
+    --color-border-light: rgba(255, 255, 255, 0.1);
+    --color-border-medium: #444444;
+  }
+}

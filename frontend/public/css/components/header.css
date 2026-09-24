@@ -1,0 +1,58 @@
+/* ============================================
+   COMPONENT: Header
+   ============================================ */
+
+h1 {
+  margin: 0;
+  padding: var(--space-md);
+  transition: color var(--transition-normal);
+}
+
+.buttons-container {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: var(--space-md);
+}
+
+.btn-icon {
+  width: var(--btn-icon-size);
+  height: var(--btn-icon-size);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-border-dark);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  transition: transform var(--transition-fast);
+}
+
+.btn-icon:hover {
+  transform: scale(1.1);
+}
+
+.btn-icon img {
+  max-width: var(--btn-icon-img-ratio);
+  max-height: var(--btn-icon-img-ratio);
+  object-fit: contain;
+}
+
+@media (max-width: 768px) {
+  .main-header {
+    text-align: center;
+  }
+
+  h1 {
+    margin-bottom: var(--space-lg);
+    margin-top: var(--space-3xl);
+  }
+
+  .buttons-container {
+    position: static;
+    transform: none;
+    justify-content: center;
+    margin-top: var(--space-md);
+  }
+}

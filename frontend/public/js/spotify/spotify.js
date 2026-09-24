@@ -1,4 +1,3 @@
-// Configuração do Spotify - SUBSTITUA pelo seu Client ID
 const SPOTIFY_CLIENT_ID = 'SEU_CLIENT_ID_AQUI';
 const SPOTIFY_REDIRECT_URI = window.location.origin + '/';
 const SPOTIFY_SCOPES = [
@@ -10,14 +9,12 @@ const SPOTIFY_SCOPES = [
 let spotifyAccessToken = null;
 let spotifyRefreshInterval = null;
 
-// Gera string aleatória para PKCE
 function generateRandomString(length) {
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     const values = crypto.getRandomValues(new Uint8Array(length));
     return values.reduce((acc, x) => acc + possible[x % possible.length], '');
 }
 
-// Gera code challenge para PKCE
 async function generateCodeChallenge(codeVerifier) {
     const data = new TextEncoder().encode(codeVerifier);
     const digest = await crypto.subtle.digest('SHA-256', data);
@@ -27,8 +24,7 @@ async function generateCodeChallenge(codeVerifier) {
         .replace(/\//g, '_');
 }
 
-// Inicia o login com Spotify
-async function spotifyLogin() {
+export async function spotifyLogin() {
     const codeVerifier = generateRandomString(64);
     localStorage.setItem('spotify_code_verifier', codeVerifier);
 
@@ -46,7 +42,6 @@ async function spotifyLogin() {
     window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
 }
 
-// Troca o código de autorização por um token
 async function exchangeCodeForToken(code) {
     const codeVerifier = localStorage.getItem('spotify_code_verifier');
 
@@ -78,7 +73,6 @@ async function exchangeCodeForToken(code) {
     }
 }
 
-// Atualiza o token usando refresh token
 async function refreshSpotifyToken() {
     const refreshToken = localStorage.getItem('spotify_refresh_token');
     if (!refreshToken) return;
@@ -108,20 +102,16 @@ async function refreshSpotifyToken() {
     }
 }
 
-// Inicia o refresh automático do token
 function startSpotifyRefresh() {
     if (spotifyRefreshInterval) clearInterval(spotifyRefreshInterval);
-    // Refresh a cada 50 minutos (token expira em 60)
     spotifyRefreshInterval = setInterval(refreshSpotifyToken, 50 * 60 * 1000);
 }
 
-// Mostra o player e esconde o botão de conectar
 function showSpotifyPlayer() {
     document.getElementById('spotifyNotConnected').style.display = 'none';
     document.getElementById('spotifyPlayer').style.display = 'block';
 }
 
-// Faz requisição para a API do Spotify
 async function spotifyApi(endpoint, method = 'GET', body = null) {
     if (!spotifyAccessToken) return null;
 
@@ -150,7 +140,6 @@ async function spotifyApi(endpoint, method = 'GET', body = null) {
     return response.json();
 }
 
-// Atualiza informações da música atual
 async function updateSpotifyNowPlaying() {
     const data = await spotifyApi('/me/player/currently-playing');
 
@@ -162,15 +151,13 @@ async function updateSpotifyNowPlaying() {
             document.getElementById('spotifyAlbumArt').src = data.item.album.images[0].url;
         }
 
-        // Atualiza ícone play/pause
         const isPlaying = data.is_playing;
         document.getElementById('spotifyPlayIcon').style.display = isPlaying ? 'none' : 'block';
         document.getElementById('spotifyPauseIcon').style.display = isPlaying ? 'block' : 'none';
     }
 }
 
-// Toggle play/pause
-async function spotifyTogglePlay() {
+export async function spotifyTogglePlay() {
     const data = await spotifyApi('/me/player');
 
     if (data && data.is_playing) {
@@ -182,41 +169,33 @@ async function spotifyTogglePlay() {
     setTimeout(updateSpotifyNowPlaying, 300);
 }
 
-// Próxima música
-async function spotifyNext() {
+export async function spotifyNext() {
     await spotifyApi('/me/player/next', 'POST');
     setTimeout(updateSpotifyNowPlaying, 300);
 }
 
-// Música anterior
-async function spotifyPrevious() {
+export async function spotifyPrevious() {
     await spotifyApi('/me/player/previous', 'POST');
     setTimeout(updateSpotifyNowPlaying, 300);
 }
 
-// Ajusta o volume
-async function spotifySetVolume(value) {
+export async function spotifySetVolume(value) {
     await spotifyApi(`/me/player/volume?volume_percent=${value}`, 'PUT');
 }
 
-// Verifica se há código de autorização na URL (callback)
 function checkSpotifyCallback() {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
 
     if (code) {
-        // Remove o código da URL
         window.history.replaceState({}, document.title, window.location.pathname);
         exchangeCodeForToken(code);
     }
 }
 
-// Inicializa o Spotify ao carregar a página
 function initSpotify() {
-    // Verifica callback primeiro
     checkSpotifyCallback();
 
-    // Verifica se já tem token salvo
     const savedToken = localStorage.getItem('spotify_access_token');
     const tokenExpiry = localStorage.getItem('spotify_token_expiry');
 
@@ -225,11 +204,8 @@ function initSpotify() {
         showSpotifyPlayer();
         updateSpotifyNowPlaying();
         startSpotifyRefresh();
-
-        // Atualiza a cada 5 segundos
         setInterval(updateSpotifyNowPlaying, 5000);
     } else if (localStorage.getItem('spotify_refresh_token')) {
-        // Token expirado, tenta renovar
         refreshSpotifyToken().then(() => {
             if (spotifyAccessToken) {
                 showSpotifyPlayer();
@@ -241,5 +217,4 @@ function initSpotify() {
     }
 }
 
-// Executa quando o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', initSpotify);

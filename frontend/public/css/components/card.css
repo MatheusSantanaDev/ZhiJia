@@ -1,0 +1,32 @@
+/* ============================================
+   COMPONENT: Card (base)
+   ============================================ */
+
+.card {
+  background-color: var(--color-bg-card);
+  padding: var(--space-xl);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border-light);
+}
+
+/* Horizontal weather card variant */
+.horizontal-weather {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 100%;
+  max-width: var(--max-width-content);
+  padding: var(--space-xl);
+  background-color: var(--color-bg-secondary);
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: var(--space-lg);
+  }
+
+  .horizontal-weather {
+    padding: var(--space-lg);
+  }
+}

@@ -1,0 +1,110 @@
+/* ============================================
+   COMPONENT: Servo / Motor Card
+   ============================================ */
+
+.servo-card {
+  flex: 1;
+  min-width: var(--card-min-width);
+  max-width: var(--card-max-width);
+  min-height: var(--card-min-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.servo-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  width: 100%;
+}
+
+/* Speed Slider (triangle style) */
+.speed-slider-container {
+  position: relative;
+  width: 100%;
+  height: var(--speed-slider-height);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.speed-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(0% 100%, 100% 0%, 100% 100%);
+  background: linear-gradient(to right, var(--color-brand-green) 37.5%, var(--color-border-medium) 37.5%);
+  border-radius: var(--radius-sm);
+}
+
+/* Servo Buttons */
+.servo-buttons {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+}
+
+.motor-btn {
+  flex: 1;
+  padding: var(--motor-btn-padding);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
+  width: auto;
+  height: auto;
+  border: 2px solid transparent;
+}
+
+.motor-btn:hover {
+  transform: scale(1.05);
+}
+
+.open-btn {
+  background-color: var(--color-brand-green);
+  color: var(--color-text-inverse);
+  border-color: var(--color-brand-green-dark);
+}
+
+.open-btn:hover {
+  background-color: var(--color-brand-green-dark);
+}
+
+.close-btn {
+  background-color: var(--color-brand-red);
+  color: var(--color-text-inverse);
+  border-color: var(--color-brand-red-dark);
+}
+
+.close-btn:hover {
+  background-color: var(--color-brand-red-dark);
+}
+
+.open-btn.active {
+  background-color: var(--color-brand-green-darker);
+  border-color: var(--color-brand-green-darkest);
+  box-shadow: var(--shadow-btn-active-green);
+}
+
+.close-btn.active {
+  background-color: var(--color-brand-red-darker);
+  border-color: var(--color-brand-red-darkest);
+  box-shadow: var(--shadow-btn-active-red);
+}
+
+/* Focus styles */
+.motor-btn:focus-visible {
+  outline: 2px solid var(--color-brand-green);
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  .servo-card {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+}

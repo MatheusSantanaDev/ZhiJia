@@ -1,0 +1,221 @@
+/* ============================================
+   COMPONENT: Weather Card
+   ============================================ */
+
+/* Current Weather Section */
+.current-weather {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border-medium);
+  padding-bottom: var(--space-lg);
+}
+
+.current-main-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.weather-icon-large {
+  width: var(--weather-icon-large);
+  height: var(--weather-icon-large);
+}
+
+.main-temp {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+.description {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+}
+
+.main-temp .inline-icon {
+  width: var(--weather-icon-detail-xl);
+  height: var(--weather-icon-detail-xl);
+}
+
+/* Current Details */
+.current-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.detail-item p {
+  margin: 0;
+}
+
+.detail-item .inline-icon {
+  width: var(--weather-icon-detail-md);
+  height: var(--weather-icon-detail-md);
+}
+
+.current-details .detail-item:first-child {
+  margin-bottom: var(--space-xs);
+}
+
+.current-details .detail-item:first-child .inline-icon {
+  width: var(--weather-icon-detail-lg);
+  height: var(--weather-icon-detail-lg);
+}
+
+.current-details .detail-item:first-child h3 {
+  font-size: var(--font-size-2xl);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-bold);
+}
+
+.detail-item:not(:first-child) .inline-icon {
+  width: var(--weather-icon-detail-md);
+  height: var(--weather-icon-detail-md);
+}
+
+.current-details h3 {
+  margin: 0 0 var(--space-xs) 0;
+  font-size: var(--font-size-xl);
+}
+
+.current-details p {
+  margin: 2px 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* Refresh Button */
+.refresh-container {
+  align-self: flex-start;
+}
+
+.refresh-btn {
+  width: var(--refresh-btn-size);
+  height: var(--refresh-btn-size);
+  border: 1px solid var(--color-border-medium);
+  background-color: var(--color-bg-primary);
+  border-radius: var(--radius-full);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.refresh-btn img {
+  width: var(--refresh-btn-img-size);
+  height: var(--refresh-btn-img-size);
+}
+
+/* Weekly Forecast */
+.weekly-forecast {
+  width: 100%;
+}
+
+.forecast-list {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.forecast-day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-xs);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+
+.forecast-day:hover {
+  background-color: #eef2f7;
+}
+
+.day-name {
+  font-weight: var(--font-weight-bold);
+}
+
+.day-icon {
+  width: var(--weather-icon-day);
+  height: var(--weather-icon-day);
+}
+
+.day-temp {
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.day-humidity {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  justify-content: center;
+  width: 60px;
+}
+
+.forecast-day .inline-icon {
+  width: var(--weather-icon-detail-sm);
+  height: var(--weather-icon-detail-sm);
+}
+
+@media (max-width: 768px) {
+  .current-weather {
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-lg);
+  }
+
+  .refresh-container {
+    order: -1;
+    align-self: flex-end;
+  }
+
+  .forecast-list {
+    flex-direction: column;
+  }
+
+  .forecast-day {
+    flex-direction: row;
+    border-bottom: 1px solid var(--color-border-light);
+    align-items: center;
+  }
+
+  .forecast-day:last-child {
+    border-bottom: none;
+  }
+
+  .forecast-day .day-name {
+    flex-basis: 35%;
+    text-align: left;
+  }
+
+  .forecast-day .day-icon {
+    flex-basis: 15%;
+    margin: 0 auto;
+  }
+
+  .forecast-day .day-temp {
+    flex-basis: 25%;
+    text-align: right;
+  }
+
+  .forecast-day .day-humidity {
+    flex-basis: 25%;
+    text-align: right;
+  }
+}

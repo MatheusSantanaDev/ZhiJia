@@ -1,0 +1,90 @@
+/* ============================================
+   COMPONENT: Connection Status
+   ============================================ */
+
+.connection-status {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 12px;
+  background: var(--color-bg-overlay-light);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  transition: all var(--transition-normal);
+  z-index: var(--z-index-header);
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  transition: background-color var(--transition-normal);
+}
+
+.status-text {
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-xs);
+  transition: color var(--transition-normal);
+}
+
+/* Estado: Conectando */
+.connection-status.connecting .status-dot {
+  background-color: var(--color-status-connecting);
+  animation: pulse-yellow 1.5s infinite;
+}
+
+.connection-status.connecting .status-text {
+  color: var(--color-status-connecting);
+}
+
+/* Estado: Conectado */
+.connection-status.connected .status-dot {
+  background-color: var(--color-status-connected);
+  animation: pulse-green 2s infinite;
+}
+
+.connection-status.connected .status-text {
+  color: var(--color-status-connected);
+}
+
+/* Estado: Desconectado */
+.connection-status.disconnected .status-dot {
+  background-color: var(--color-status-disconnected);
+  animation: none;
+}
+
+.connection-status.disconnected .status-text {
+  color: var(--color-status-disconnected);
+}
+
+@keyframes pulse-yellow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--color-shadow-pulse-yellow);
+  }
+  50% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+@keyframes pulse-green {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--color-shadow-pulse-green);
+  }
+  50% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+@media (max-width: 768px) {
+  .connection-status {
+    position: fixed;
+    top: var(--space-md);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: var(--z-index-connection);
+  }
+}

@@ -1,0 +1,47 @@
+/* ============================================
+   LAYOUT - Main page structure
+   ============================================ */
+
+.main-header {
+  position: relative;
+  text-align: center;
+  margin-bottom: var(--space-2xl);
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2xl);
+  width: 100%;
+  max-width: var(--max-width-content);
+  margin: 0 auto;
+  padding: 0 var(--space-md);
+}
+
+.controls-container {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-xl);
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: var(--space-md);
+  }
+
+  .main-header {
+    margin-bottom: var(--space-xl);
+  }
+
+  .main-content {
+    gap: var(--space-xl);
+  }
+
+  .controls-container,
+  .horizontal-weather {
+    width: 90%;
+  }
+}
