@@ -359,14 +359,4 @@ async function initSpotify() {
     }
 }
 
-function startSpotifyRefresh() {
-    if (spotifyRefreshInterval) clearInterval(spotifyRefreshInterval);
-    spotifyRefreshInterval = setInterval(refreshSpotifyToken, 50 * 60 * 1000);
-}
-
-function showSpotifyPlayer() {
-    document.getElementById('spotifyNotConnected').style.display = 'none';
-    document.getElementById('spotifyPlayer').style.display = 'block';
-}
-
 document.addEventListener('DOMContentLoaded', initSpotify);
