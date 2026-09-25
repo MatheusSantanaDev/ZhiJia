@@ -170,7 +170,9 @@ function startSpotifyRefresh() {
 }
 
 function showSpotifyPlayer() {
-    document.getElementById('spotifyNotConnected').style.display = 'none';
+    const notConnected = document.getElementById('spotifyNotConnected');
+    if (notConnected) notConnected.style.display = 'none';
+    document.getElementById('spotifyConnectFixed').style.display = 'none';
     document.getElementById('spotifyPlayerFixed').style.display = 'block';
 }
 
@@ -242,6 +244,7 @@ async function updateSpotifyNowPlaying() {
         // currently-playing pode não ter device, busca no player
         const playerData = await spotifyApi('/me/player');
         renderSpotifyItem(data.item, data.is_playing, playerData?.device, data.progress_ms);
+        saveLastPlayed(data.item, data.is_playing, data.progress_ms);
         return;
     } else if (data && data.currently_playing_type === 'episode') {
         // Episodio mas item é null - tentar buscar no player state
@@ -250,6 +253,7 @@ async function updateSpotifyNowPlaying() {
         if (playerData && playerData.item && playerData.item.type === 'episode') {
             // Achou no player state!
             renderSpotifyItem(playerData.item, data.is_playing, playerData.device, playerData.progress_ms);
+            saveLastPlayed(playerData.item, data.is_playing, playerData.progress_ms);
             return;
         }
         
@@ -262,13 +266,42 @@ async function updateSpotifyNowPlaying() {
         document.getElementById('spotifyPlayIcon').style.display = isPlaying ? 'none' : 'block';
         document.getElementById('spotifyPauseIcon').style.display = isPlaying ? 'block' : 'none';
     } else if (data === null || (data && !data.item)) {
-        // Nenhuma música tocando no momento
-        document.getElementById('spotifyTrackName').textContent = 'Nada tocando';
-        document.getElementById('spotifyArtistName').textContent = '';
-        document.getElementById('spotifyAlbumArt').src = '';
-        document.getElementById('spotifyPlayIcon').style.display = 'block';
-        document.getElementById('spotifyPauseIcon').style.display = 'none';
+        // Nenhuma música tocando no momento - mostra último salvo
+        renderLastPlayed();
     }
+}
+
+function saveLastPlayed(item, isPlaying, progressMs) {
+    try {
+        const lastPlayed = {
+            item: item,
+            isPlaying: isPlaying,
+            progressMs: progressMs,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('spotify_last_played', JSON.stringify(lastPlayed));
+    } catch (e) {
+        console.warn('[Spotify] Falha ao salvar último tocado:', e);
+    }
+}
+
+function renderLastPlayed() {
+    try {
+        const lastPlayed = JSON.parse(localStorage.getItem('spotify_last_played') || 'null');
+        if (lastPlayed && lastPlayed.item) {
+            renderSpotifyItem(lastPlayed.item, false, null, lastPlayed.progressMs);
+            return;
+        }
+    } catch (e) {
+        console.warn('[Spotify] Falha ao carregar último tocado:', e);
+    }
+    
+    // Fallback se não tem nada salvo
+    document.getElementById('spotifyTrackName').textContent = 'Nada tocando';
+    document.getElementById('spotifyArtistName').textContent = 'Selecione algo no app do Spotify';
+    document.getElementById('spotifyAlbumArt').style.display = 'none';
+    document.getElementById('spotifyPlayIcon').style.display = 'block';
+    document.getElementById('spotifyPauseIcon').style.display = 'none';
 }
 
 function renderSpotifyItem(item, isPlaying, device, progressMs) {
@@ -300,8 +333,12 @@ function renderSpotifyItem(item, isPlaying, device, progressMs) {
     
     if (imageUrl) {
         document.getElementById('spotifyAlbumArt').src = imageUrl;
+        document.getElementById('spotifyAlbumArt').style.display = 'block';
     } else if (isEpisode) {
         document.getElementById('spotifyAlbumArt').src = './icons/spotify-podcast.svg';
+        document.getElementById('spotifyAlbumArt').style.display = 'block';
+    } else {
+        document.getElementById('spotifyAlbumArt').style.display = 'none';
     }
 
     document.getElementById('spotifyPlayIcon').style.display = isPlaying ? 'none' : 'block';
@@ -465,6 +502,9 @@ async function initSpotify() {
     const savedToken = localStorage.getItem('spotify_access_token');
     const tokenExpiry = localStorage.getItem('spotify_token_expiry');
 
+    console.log('[Spotify] Init - savedToken:', !!savedToken, 'expiry:', tokenExpiry, 'now:', Date.now(), 'valid:', savedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry));
+    console.log('[Spotify] Has refresh_token:', !!localStorage.getItem('spotify_refresh_token'));
+
     if (savedToken && tokenExpiry && Date.now() < parseInt(tokenExpiry)) {
         spotifyAccessToken = savedToken;
         showSpotifyPlayer();
@@ -472,13 +512,18 @@ async function initSpotify() {
         startSpotifyRefresh();
         setInterval(updateSpotifyNowPlaying, SPOTIFY_CONFIG.pollInterval);
     } else if (localStorage.getItem('spotify_refresh_token')) {
+        console.log('[Spotify] Tentando refresh token...');
         await refreshSpotifyToken();
+        console.log('[Spotify] Após refresh - accessToken:', !!spotifyAccessToken);
         if (spotifyAccessToken) {
             showSpotifyPlayer();
             await updateSpotifyNowPlaying();
             startSpotifyRefresh();
             setInterval(updateSpotifyNowPlaying, SPOTIFY_CONFIG.pollInterval);
         }
+    } else {
+        // No token - show connect button
+        document.getElementById('spotifyConnectFixed').style.display = 'flex';
     }
 }
 

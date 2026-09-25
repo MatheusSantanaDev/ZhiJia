@@ -389,3 +389,81 @@
     justify-content: center;
   }
 }
+
+/* Header Spotify connect button */
+.spotify-connect-header {
+  margin-left: var(--space-md);
+  display: flex;
+  align-items: flex-end;
+}
+
+.spotify-connect-header-btn {
+  background: none;
+  border: none;
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--color-spotify-green);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.spotify-connect-header-btn:hover {
+  transform: scale(1.05);
+}
+
+.spotify-connect-header-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.spotify-connect-label {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* Fixed bottom-left Spotify connect button */
+.spotify-connect-fixed {
+  position: fixed;
+  bottom: 15px;
+  left: 15px;
+  z-index: 999;
+}
+
+.spotify-connect-fixed-btn {
+  background: var(--color-spotify-green);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: var(--space-xs) var(--space-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 8px rgba(29, 185, 84, 0.4);
+}
+
+.spotify-connect-fixed-btn:hover {
+  background: var(--color-spotify-green-hover);
+  transform: scale(1.05);
+}
+
+.spotify-connect-fixed-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.spotify-connect-fixed-btn .spotify-connect-label {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
