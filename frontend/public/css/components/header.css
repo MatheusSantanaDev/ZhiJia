@@ -10,7 +10,7 @@ h1 {
 
 .buttons-container {
   position: absolute;
-  right: 0;
+  right: var(--space-sm);
   top: 50%;
   transform: translateY(-50%);
   display: flex;

@@ -430,7 +430,7 @@
 /* Fixed bottom-left Spotify connect button */
 .spotify-connect-fixed {
   position: fixed;
-  bottom: 15px;
+  bottom: 5px;
   left: 15px;
   z-index: 999;
 }
