@@ -6,36 +6,15 @@
     "admin_password": "admin",
 
     "mqtt_host": "192.168.0.XXX",
-    "mqtt_ws_port": 9001,
     "mqtt_port": 1883,
-    "mqtt_topics": {
-        "led": "home/led/color",
-        "servo": "home/servo/angle",
-        "stripColor": "home/strip/color",
-        "stripPower": "home/strip/power"
-    },
 
     "duckdns_token": "SEU_TOKEN_DUCKDNS",
     "duckdns_domain": "seu-dominio.duckdns.org",
-    "server_port": 1420,
 
     "strip_ip": "192.168.0.XXX",
     "strip_device_id": "SEU_DEVICE_ID_TUYA",
     "strip_local_key": "SUA_LOCAL_KEY_TUYA",
 
-    "weather_zip_code": "38414-553",
-    "weather_update_interval": 3600000,
-
-    "servo_speed_min": 1,
-    "servo_speed_max": 100,
-    "servo_default_speed": 50,
-
     "spotify_client_id": "SEU_SPOTIFY_CLIENT_ID",
-    "spotify_redirect_uri": "http://127.0.0.1:8080/",
-    "spotify_scopes": [
-        "user-read-playback-state",
-        "user-modify-playback-state",
-        "user-read-currently-playing"
-    ],
-    "spotify_poll_interval": 2000
+    "spotify_redirect_uri": "http://127.0.0.1:8080/"
 }

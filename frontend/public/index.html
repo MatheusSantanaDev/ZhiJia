@@ -113,37 +113,52 @@
                     </button>
                 </div>
 
-                <div class="spotify-player" id="spotifyPlayer" style="display: none;">
-                    <div class="spotify-now-playing">
-                        <img src="" alt="Album" id="spotifyAlbumArt" class="spotify-album-art">
-                        <div class="spotify-track-info">
-                            <span class="spotify-track-name" id="spotifyTrackName">-</span>
-                            <span class="spotify-artist-name" id="spotifyArtistName">-</span>
+                <div class="spotify-player-fixed" id="spotifyPlayerFixed" style="display: none;">
+                    <div class="spotify-player" id="spotifyPlayer">
+                        <div class="spotify-main-content">
+                            <img src="" alt="Album" id="spotifyAlbumArt" class="spotify-album-art">
+                            <div class="spotify-content-right">
+                                <div class="spotify-track-info">
+                                    <span class="spotify-track-name" id="spotifyTrackName">-</span>
+                                    <span class="spotify-artist-name" id="spotifyArtistName">-</span>
+                                </div>
+                                <div class="spotify-progress">
+                                    <span class="spotify-time-current" id="spotifyTimeCurrent">0:00</span>
+                                    <div class="spotify-progress-bar" id="spotifyProgressBar">
+                                        <div class="spotify-progress-fill" id="spotifyProgressFill"></div>
+                                    </div>
+                                    <span class="spotify-time-total" id="spotifyTimeTotal">0:00</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="spotify-controls">
-                        <button class="spotify-ctrl-btn" onclick="spotifyPrevious()">
-                            <img src="./icons/spotify-previous.svg" alt="Anterior" width="24" height="24">
-                        </button>
-                        <button class="spotify-ctrl-btn" onclick="spotifySeekBackward()" title="Voltar 15s">
-                            <img src="./icons/backward.png" alt="Voltar 15s" width="28" height="28">
-                        </button>
-                        <button class="spotify-ctrl-btn spotify-play-btn" id="spotifyPlayBtn" onclick="spotifyTogglePlay()">
-                            <svg viewBox="0 0 24 24" id="spotifyPlayIcon"><path d="M8 5v14l11-7z"/></svg>
-                            <svg viewBox="0 0 24 24" id="spotifyPauseIcon" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                        </button>
-                        <button class="spotify-ctrl-btn" onclick="spotifySeekForward()" title="Avançar 15s">
-                            <img src="./icons/forward.png" alt="Avançar 15s" width="28" height="28">
-                        </button>
-                        <button class="spotify-ctrl-btn" onclick="spotifyNext()">
-                            <img src="./icons/spotify-next.svg" alt="Próxima" width="24" height="24">
-                        </button>
-                    </div>
+                        <div class="spotify-bottom-bar">
+                            <div class="spotify-controls-wrapper">
+                                <div class="spotify-controls">
+                                    <button class="spotify-ctrl-btn" onclick="spotifyPrevious()">
+                                        <img src="./icons/spotify-previous.svg" alt="Anterior" width="24" height="24">
+                                    </button>
+                                    <button class="spotify-ctrl-btn" id="spotifySeekBackwardBtn" onclick="spotifySeekBackward()" title="Voltar 15s" style="display: none;">
+                                        <img src="./icons/backward.png" alt="Voltar 15s" width="28" height="28">
+                                    </button>
+                                    <button class="spotify-ctrl-btn spotify-play-btn" id="spotifyPlayBtn" onclick="spotifyTogglePlay()">
+                                        <svg viewBox="0 0 24 24" id="spotifyPlayIcon"><path d="M8 5v14l11-7z"/></svg>
+                                        <svg viewBox="0 0 24 24" id="spotifyPauseIcon" style="display:none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                                    </button>
+                                    <button class="spotify-ctrl-btn" id="spotifySeekForwardBtn" onclick="spotifySeekForward()" title="Avançar 15s" style="display: none;">
+                                        <img src="./icons/forward.png" alt="Avançar 15s" width="28" height="28">
+                                    </button>
+                                    <button class="spotify-ctrl-btn" onclick="spotifyNext()">
+                                        <img src="./icons/spotify-next.svg" alt="Próxima" width="24" height="24">
+                                    </button>
+                                </div>
+                            </div>
 
-                    <div class="spotify-volume">
-                        <svg viewBox="0 0 24 24" class="volume-icon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-                        <input type="range" id="spotifyVolume" min="0" max="100" value="50" oninput="spotifySetVolume(this.value)">
+                            <div class="spotify-volume">
+                                <img src="./icons/volume.svg" alt="Volume" width="20" height="20" class="volume-icon">
+                                <input type="range" id="spotifyVolume" min="0" max="100" value="50" oninput="spotifySetVolume(this.value)">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,4 +1,5 @@
 import { loadConfig, getConfigValue } from '../utils/config.js';
+import { SPOTIFY_CONFIG } from '../config.js';
 
 let spotifyAccessToken = null;
 let spotifyRefreshInterval = null;
@@ -8,12 +9,8 @@ export async function initSpotifyConfig() {
     await loadConfig();
     spotifyConfig = {
         clientId: getConfigValue('spotify_client_id'),
-        redirectUri: getConfigValue('spotify_redirect_uri', window.location.origin + '/'),
-        scopes: getConfigValue('spotify_scopes', [
-            'user-read-playback-state',
-            'user-modify-playback-state',
-            'user-read-currently-playing'
-        ]).join(' ')
+        redirectUri: SPOTIFY_CONFIG.redirectUri,
+        scopes: SPOTIFY_CONFIG.scopes.join(' ')
     };
 
     if (!spotifyConfig.clientId || spotifyConfig.clientId === 'SEU_SPOTIFY_CLIENT_ID') {
@@ -27,6 +24,14 @@ function generateRandomString(length) {
     const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     const values = crypto.getRandomValues(new Uint8Array(length));
     return values.reduce((acc, x) => acc + possible[x % possible.length], '');
+}
+
+function formatTime(ms) {
+    if (!ms || ms < 0) return '0:00';
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 async function generateCodeChallenge(codeVerifier) {
@@ -166,7 +171,7 @@ function startSpotifyRefresh() {
 
 function showSpotifyPlayer() {
     document.getElementById('spotifyNotConnected').style.display = 'none';
-    document.getElementById('spotifyPlayer').style.display = 'block';
+    document.getElementById('spotifyPlayerFixed').style.display = 'block';
 }
 
 async function spotifyApi(endpoint, method = 'GET', body = null) {
@@ -236,7 +241,7 @@ async function updateSpotifyNowPlaying() {
     if (data && data.item) {
         // currently-playing pode não ter device, busca no player
         const playerData = await spotifyApi('/me/player');
-        renderSpotifyItem(data.item, data.is_playing, playerData?.device);
+        renderSpotifyItem(data.item, data.is_playing, playerData?.device, data.progress_ms);
         return;
     } else if (data && data.currently_playing_type === 'episode') {
         // Episodio mas item é null - tentar buscar no player state
@@ -244,7 +249,7 @@ async function updateSpotifyNowPlaying() {
         
         if (playerData && playerData.item && playerData.item.type === 'episode') {
             // Achou no player state!
-            renderSpotifyItem(playerData.item, data.is_playing, playerData.device);
+            renderSpotifyItem(playerData.item, data.is_playing, playerData.device, playerData.progress_ms);
             return;
         }
         
@@ -266,7 +271,7 @@ async function updateSpotifyNowPlaying() {
     }
 }
 
-function renderSpotifyItem(item, isPlaying, device) {
+function renderSpotifyItem(item, isPlaying, device, progressMs) {
     const isEpisode = item.type === 'episode';
     
     document.getElementById('spotifyTrackName').textContent = item.name;
@@ -301,6 +306,50 @@ function renderSpotifyItem(item, isPlaying, device) {
 
     document.getElementById('spotifyPlayIcon').style.display = isPlaying ? 'none' : 'block';
     document.getElementById('spotifyPauseIcon').style.display = isPlaying ? 'block' : 'none';
+
+    // Atualiza barra de progresso
+    const progressFill = document.getElementById('spotifyProgressFill');
+    const timeCurrent = document.getElementById('spotifyTimeCurrent');
+    const timeTotal = document.getElementById('spotifyTimeTotal');
+    const progressBar = document.getElementById('spotifyProgressBar');
+
+    if (item.duration_ms && progressFill && timeCurrent && timeTotal) {
+        const currentMs = progressMs ?? item.progress_ms ?? 0;
+        const progress = (currentMs / item.duration_ms) * 100;
+        progressFill.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+        timeCurrent.textContent = formatTime(currentMs);
+        timeTotal.textContent = formatTime(item.duration_ms);
+    } else if (timeCurrent && timeTotal) {
+        timeCurrent.textContent = '0:00';
+        timeTotal.textContent = '0:00';
+        if (progressFill) progressFill.style.width = '0%';
+    }
+
+    // Click na barra de progresso para seek
+    if (progressBar) {
+        progressBar.onclick = (e) => {
+            const rect = progressBar.getBoundingClientRect();
+            const percent = (e.clientX - rect.left) / rect.width;
+            const newPosition = Math.round(percent * (item.duration_ms || 0));
+            if (item.duration_ms) {
+                spotifyApi(`/me/player/seek?position_ms=${newPosition}`, 'PUT');
+                setTimeout(updateSpotifyNowPlaying, 300);
+            }
+        };
+    }
+
+    // Mostra/esconde botões de 15s apenas para podcasts
+    const seekBackwardBtn = document.getElementById('spotifySeekBackwardBtn');
+    const seekForwardBtn = document.getElementById('spotifySeekForwardBtn');
+    if (seekBackwardBtn && seekForwardBtn) {
+        if (isEpisode) {
+            seekBackwardBtn.style.display = '';
+            seekForwardBtn.style.display = '';
+        } else {
+            seekBackwardBtn.style.display = 'none';
+            seekForwardBtn.style.display = 'none';
+        }
+    }
 
     // Atualiza slider de volume se device tiver volume
     if (device) {
@@ -421,16 +470,14 @@ async function initSpotify() {
         showSpotifyPlayer();
         await updateSpotifyNowPlaying();
         startSpotifyRefresh();
-        const pollInterval = getConfigValue('spotify_poll_interval', 2000);
-        setInterval(updateSpotifyNowPlaying, pollInterval);
+        setInterval(updateSpotifyNowPlaying, SPOTIFY_CONFIG.pollInterval);
     } else if (localStorage.getItem('spotify_refresh_token')) {
         await refreshSpotifyToken();
         if (spotifyAccessToken) {
             showSpotifyPlayer();
             await updateSpotifyNowPlaying();
             startSpotifyRefresh();
-            const pollInterval = getConfigValue('spotify_poll_interval', 2000);
-            setInterval(updateSpotifyNowPlaying, pollInterval);
+            setInterval(updateSpotifyNowPlaying, SPOTIFY_CONFIG.pollInterval);
         }
     }
 }

@@ -3,6 +3,7 @@ import { getConfigValue } from './utils/config.js';
 export const MQTT_CONFIG = {
     get host() { return getConfigValue('mqtt_host', window.location.hostname || 'localhost'); },
     get wsPort() { return getConfigValue('mqtt_ws_port', 9001); },
+    get port() { return getConfigValue('mqtt_port', 1883); },
     get topics() {
         return getConfigValue('mqtt_topics', {
             led: 'home/led/color',
@@ -22,6 +23,20 @@ export const SERVO_CONFIG = {
     get speedMin() { return getConfigValue('servo_speed_min', 1); },
     get speedMax() { return getConfigValue('servo_speed_max', 100); },
     get defaultSpeed() { return getConfigValue('servo_default_speed', 50); }
+};
+
+export const SERVER_CONFIG = {
+    get port() { return getConfigValue('server_port', 1420); }
+};
+
+export const SPOTIFY_CONFIG = {
+    get pollInterval() { return getConfigValue('spotify_poll_interval', 1000); },
+    get scopes() { return getConfigValue('spotify_scopes', [
+        'user-read-playback-state',
+        'user-modify-playback-state',
+        'user-read-currently-playing'
+    ]); },
+    get redirectUri() { return getConfigValue('spotify_redirect_uri', window.location.origin + '/'); }
 };
 
 export const ICON_MAP = {
