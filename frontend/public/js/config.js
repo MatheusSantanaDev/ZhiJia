@@ -41,6 +41,7 @@ export const SPOTIFY_CONFIG = {
 
 export const ICON_MAP = {
     sol: './icons/sol.svg',
+    lua: './icons/lua.svg',
     nuvem: './icons/nuvem.svg',
     nublado: './icons/nublado.svg',
     chuva_leve: './icons/chuva_leve.svg',

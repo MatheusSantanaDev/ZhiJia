@@ -69,8 +69,14 @@ export function updateWeatherUI(data) {
     console.log("Interface do tempo atualizada com dados da Open-Meteo!");
 }
 
+function isNightTime() {
+    const hour = new Date().getHours();
+    return hour >= 18 || hour < 6;
+}
+
 function mapWmoIcon(code) {
-    if (code <= 1) return "sol";
+    const isNight = isNightTime();
+    if (code <= 1) return isNight ? "lua" : "sol";
     if (code === 2) return "nuvem";
     if (code === 3) return "nublado";
     if (code >= 45 && code <= 48) return "nevoa";
