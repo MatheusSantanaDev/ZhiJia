@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "core.restore_state",
+  "data": [
+    {
+      "state": {"entity_id":"conversation.home_assistant","state":"unknown","attributes":{"friendly_name":"Home Assistant","supported_features":1},"last_changed":"2026-09-25T15:36:37.397957+00:00","last_reported":"2026-09-25T15:36:37.397957+00:00","last_updated":"2026-09-25T15:36:37.397957+00:00","context":{"id":"01M3CKC78NX2R2YCGSQF51VC22","parent_id":null,"user_id":null}},
+      "extra_data": null,
+      "last_seen": "2026-09-25T15:51:37.470687+00:00"
+    },
+    {
+      "state": {"entity_id":"event.backup_automatic_backup","state":"unknown","attributes":{"event_types":["completed","failed","in_progress"],"event_type":null,"friendly_name":"Backup"},"last_changed":"2026-09-25T15:36:37.443081+00:00","last_reported":"2026-09-25T15:36:37.443081+00:00","last_updated":"2026-09-25T15:36:37.443081+00:00","context":{"id":"01M3CKC7A33FKNP8GYMVN21KGP","parent_id":null,"user_id":null}},
+      "extra_data": {
+        "last_event_type": null,
+        "last_event_attributes": null
+      },
+      "last_seen": "2026-09-25T15:51:37.470687+00:00"
+    }
+  ]
+}

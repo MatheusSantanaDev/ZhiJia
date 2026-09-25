@@ -15,6 +15,42 @@ services:
     networks:
       - zhijia-network
 
+  homeassistant:
+    build:
+      context: ./homeassistant-core
+      dockerfile: Dockerfile.local
+    container_name: zhijia-homeassistant
+    # No ports exposed - nginx proxies to it
+    expose:
+      - "8123"
+    volumes:
+      - ./homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    networks:
+      - zhijia-network
+    depends_on:
+      - mosquitto
+    environment:
+      # Disable built-in frontend serving
+      - HOMEASSISTANT_FRONTEND_DEV_REPO=
+
+  # Home Assistant Frontend (built locally from source)
+  ha-frontend:
+    image: nginx:alpine
+    container_name: zhijia-ha-frontend
+    ports:
+      - "8123:80"
+    volumes:
+      - ./homeassistant-frontend/hass_frontend:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+    depends_on:
+      - homeassistant
+    networks:
+      - zhijia-network
+
+  # Your custom frontend (existing)
   frontend:
     image: nginx:alpine
     container_name: zhijia-frontend

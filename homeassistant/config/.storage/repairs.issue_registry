@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "minor_version": 2,
+  "key": "repairs.issue_registry",
+  "data": {
+    "issues": [
+      {
+        "created": "2026-09-25T11:49:07.395779+00:00",
+        "dismissed_version": null,
+        "domain": "http",
+        "is_persistent": false,
+        "issue_id": "deprecated_yaml"
+      },
+      {
+        "created": "2026-09-25T11:49:07.402434+00:00",
+        "dismissed_version": null,
+        "domain": "lovelace",
+        "is_persistent": false,
+        "issue_id": "yaml_mode_deprecated"
+      },
+      {
+        "created": "2026-09-25T11:49:53.827646+00:00",
+        "dismissed_version": null,
+        "domain": "http",
+        "is_persistent": false,
+        "issue_id": "yaml_still_present_after_migration"
+      }
+    ]
+  }
+}

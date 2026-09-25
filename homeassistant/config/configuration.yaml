@@ -1,0 +1,34 @@
+homeassistant:
+  name: ZhiJia
+  latitude: -23.5505
+  longitude: -46.6333
+  elevation: 760
+  unit_system: metric
+  time_zone: America/Sao_Paulo
+  country: BR
+
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 172.17.0.0/16
+    - 172.19.0.0/16
+    - 172.19.0.5
+    - 172.20.0.0/16
+    - 172.18.0.0/16
+
+frontend:
+  themes: !include_dir_merge_named themes
+
+logger:
+  default: info
+
+api:
+
+websocket_api:
+
+lovelace:
+  mode: yaml
+  resources: []
+
+recorder:
+  db_url: sqlite:///home-assistant_v2.db

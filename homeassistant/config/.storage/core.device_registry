@@ -1,0 +1,12 @@
+{
+  "version": 3,
+  "minor_version": 4,
+  "key": "core.device_registry",
+  "data": {
+    "devices": [
+      {"area_id":null,"config_entry_id":"01M3C6BPR7PW7PD3MRGKPGFH25","config_subentry_id":null,"configuration_url":"homeassistant://config/backup","connections":[],"created_at":"2026-09-25T11:49:09.007254+00:00","disabled_by":null,"entry_type":"service","hw_version":null,"id":"cf013f76c6ea3e96bb4a9e7ffa404441","identifiers":[["backup","backup_manager"]],"labels":[],"composite_device_id":null,"composite_primary_config_entry":null,"split_at":null,"manufacturer":"Home Assistant","model":"Home Assistant Backup","model_id":null,"modified_at":"2026-09-25T11:49:09.007292+00:00","name_by_user":null,"name":"Backup","has_composite_identifiers":false,"primary_config_entry":"01M3C6BPR7PW7PD3MRGKPGFH25","serial_number":null,"sw_version":"2026.9.3","via_device_id":null}
+    ],
+    "child_devices": [],
+    "deleted_devices": []
+  }
+}
