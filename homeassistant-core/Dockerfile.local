@@ -1,0 +1,151 @@
+# syntax=docker/dockerfile:1.7
+# Build Home Assistant Core from source locally
+# This is a monolithic build - takes 30-60 minutes
+
+ARG BASE_IMAGE=python:3.14-slim-bookworm
+FROM ${BASE_IMAGE} AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    UV_SYSTEM_PYTHON=true \
+    UV_NO_CACHE=true \
+    UV_PIP_COMPILE_BYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    CARGO_NET_GIT_FETCH_WITH_CLI=true
+
+# Install system dependencies for building
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build tools
+    build-essential \
+    cmake \
+    pkg-config \
+    autoconf \
+    automake \
+    libtool \
+    # Rust
+    curl \
+    # Go
+    golang-go \
+    # Node.js for frontend (if building)
+    nodejs \
+    npm \
+    # Python deps
+    python3-dev \
+    python3-venv \
+    # Libraries for HA components
+    libffi-dev \
+    libssl-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libwebp-dev \
+    zlib1g-dev \
+    libopenjp2-7-dev \
+    libtiff-dev \
+    liblcms2-dev \
+    libfreetype6-dev \
+    libxml2-dev \
+    libxslt-dev \
+    # MQTT
+    libmosquitto-dev \
+    # Bluetooth
+    libbluetooth-dev \
+    # USB
+    libusb-1.0-0-dev \
+    # Audio
+    libasound2-dev \
+    portaudio19-dev \
+    # Database
+    libpq-dev \
+    # Other
+    git \
+    wget \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install uv
+RUN pip3 install --no-cache-dir "uv==$(curl -s https://raw.githubusercontent.com/home-assistant/core/2026.9.3/requirements.txt | grep '^uv==' | cut -d'=' -f3)"
+
+WORKDIR /src
+
+# Copy source
+COPY . .
+
+# Build wheels for all requirements (this compiles Rust/Go deps)
+RUN uv pip install -r requirements.txt
+
+# Install all Python dependencies including HA core in editable mode
+RUN uv pip install -r requirements_all.txt && \
+    uv pip install -e . --config-settings editable_mode=compat
+
+# Compile Python bytecode
+RUN python3 -m compileall homeassistant/homeassistant
+
+# ===== Runtime stage =====
+FROM ${BASE_IMAGE} AS runtime
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    UV_SYSTEM_PYTHON=true \
+    UV_NO_CACHE=true \
+    S6_SERVICES_GRACETIME=240000
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Runtime libs
+    libffi8 \
+    libssl3 \
+    libjpeg62-turbo \
+    libpng16-16 \
+    libwebp7 \
+    zlib1g \
+    libopenjp2-7 \
+    libtiff6 \
+    liblcms2-2 \
+    libfreetype6 \
+    libxml2 \
+    libxslt1.1 \
+    libmosquitto1 \
+    libbluetooth3 \
+    libusb-1.0-0 \
+    libasound2 \
+    libportaudio2 \
+    libpq5 \
+    # HA runtime
+    curl \
+    ca-certificates \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy go2rtc binary (download pre-built)
+ARG GO2RTC_VERSION=1.9.14
+RUN curl -sSL "https://github.com/AlexxIT/go2rtc/releases/download/v${GO2RTC_VERSION}/go2rtc_linux_amd64" -o /usr/local/bin/go2rtc && \
+    chmod +x /usr/local/bin/go2rtc
+
+# Install s6-overlay
+RUN apt-get update && apt-get install -y --no-install-recommends xz-utils && \
+    curl -sSL "https://github.com/just-containers/s6-overlay/releases/download/v3.1.6.2/s6-overlay-noarch.tar.xz" -o /tmp/s6-overlay-noarch.tar.xz && \
+    curl -sSL "https://github.com/just-containers/s6-overlay/releases/download/v3.1.6.2/s6-overlay-aarch64.tar.xz" -o /tmp/s6-overlay-aarch64.tar.xz && \
+    tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz && \
+    tar -C / -Jxpf /tmp/s6-overlay-aarch64.tar.xz && \
+    rm /tmp/s6-overlay-*.tar.xz && \
+    apt-get remove -y xz-utils && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /config
+
+# Copy S6 services from source
+COPY --from=builder /src/rootfs /
+
+# Copy built Python packages from builder
+COPY --from=builder /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+COPY --from=builder /src /usr/src/homeassistant
+
+# Set Python path
+ENV PYTHONPATH=/usr/src/homeassistant
+
+EXPOSE 8123
+
+ENTRYPOINT ["/init"]
+CMD ["python3", "-m", "homeassistant", "--config", "/config"]

@@ -184,3 +184,15 @@ cd firmware && pio run -t upload
 # Monitor serial
 cd firmware && pio device monitor
 ```
+
+---
+
+## Traduções do Home Assistant
+
+**Nota para o futuro:** para atualizar traduções, repita:
+
+```bash
+gh run download <run-id> -R home-assistant/frontend -n translations
+# + atualizar translations/artifact.json
+yarn build
+```

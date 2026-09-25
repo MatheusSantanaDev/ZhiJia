@@ -41,6 +41,20 @@ Thumbs.db
 mosquitto/data/
 mosquitto/log/
 
+# Home Assistant runtime (dados sensiveis: auth, banco, logs)
+/homeassistant/config/.storage/
+/homeassistant/config/.cache/
+/homeassistant/config/*.db
+/homeassistant/config/*.db-shm
+/homeassistant/config/*.db-wal
+/homeassistant/config/*.log
+/homeassistant/config/*.log.*
+/homeassistant/config/.ha_run.lock
+
+# Clones do Home Assistant (fontes externas)
+/homeassistant-core/
+/homeassistant-frontend/
+
 # Arquivos relacionados ao PlatformIO
 **/.pio
 **/.piolibdeps
