@@ -51,6 +51,7 @@ mosquitto/log/
 /homeassistant/config/*.log
 /homeassistant/config/*.log.*
 /homeassistant/config/.ha_run.lock
+/homeassistant/config/configuration.yaml
 
 # Arquivos relacionados ao PlatformIO
 **/.pio
