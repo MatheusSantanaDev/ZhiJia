@@ -18,7 +18,7 @@ services:
   homeassistant:
     build:
       context: ./homeassistant-core
-      dockerfile: Dockerfile.local
+      dockerfile: ../homeassistant/Dockerfile.local
     container_name: zhijia-homeassistant
     # No ports exposed - nginx proxies to it
     expose:
