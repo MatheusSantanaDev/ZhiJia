@@ -1,0 +1,10 @@
+[submodule "homeassistant-core"]
+	path = homeassistant-core
+	url = https://github.com/MatheusSantanaDev/core.git
+	branch = ZhiJia
+	ignore = untracked
+[submodule "homeassistant-frontend"]
+	path = homeassistant-frontend
+	url = https://github.com/MatheusSantanaDev/frontend.git
+	branch = ZhiJia
+	ignore = untracked

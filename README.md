@@ -46,15 +46,67 @@ ZhiJia/
 │   ├── config/mosquitto.conf
 │   ├── data/
 │   └── log/
+
+├── homeassistant/           # Config do HA + Dockerfile do build local
+│   ├── config/              # .storage, banco, logs (fora do versionamento)
+│   └── Dockerfile.local
+│
+├── homeassistant-core/      # SUBMÓDULO - fork MatheusSantanaDev/core (branch ZhiJia)
+├── homeassistant-frontend/  # SUBMÓDULO - fork MatheusSantanaDev/frontend (branch ZhiJia)
 │
 ├── nginx/                   # Configuração Nginx (Reverse Proxy)
 │   └── nginx.conf
 │
 ├── docker-compose.yml       # Orquestração (raiz do projeto)
+├── .gitmodules              # Os 2 submódulos (branch ZhiJia)
 ├── .dockerignore
 ├── .gitignore
 └── README.md
 ```
+
+---
+
+## Submódulos (forks customizados)
+
+Tudo que é custom do Home Assistant vive nos forks, e o ZhiJia só aponta pra eles:
+
+| Submódulo | Fork | Branch |
+|-----------|------|--------|
+| `homeassistant-core` | `MatheusSantanaDev/core` | `ZhiJia` |
+| `homeassistant-frontend` | `MatheusSantanaDev/frontend` | `ZhiJia` |
+
+**Clone:**
+```bash
+git clone --recurse-submodules https://github.com/MatheusSantanaDev/ZhiJia.git
+# já clonou sem submódulo?
+git submodule update --init --recursive
+```
+
+**Fluxo de manutenção** (toda alteração custom é commitada 2x):
+```bash
+# 1. editar no submódulo (ex: homeassistant-core/...)
+git -C homeassistant-core add -A
+git -C homeassistant-core commit -m "feat: ..."
+git -C homeassistant-core push fork ZhiJia
+
+# 2. atualizar o ponteiro no ZhiJia
+git add homeassistant-core
+git commit -m "feat: ..."
+git push
+
+# puxar atualização do upstream
+git -C homeassistant-core fetch origin
+git -C homeassistant-core merge origin/<tag>
+# depois repita o passo 2
+```
+
+> `origin` nos submódulos = upstream do HA (pull), `fork` = seu (push).
+
+**Após clonar limpo**, o `hass_frontend/` (bundle do frontend do HA) não existe — buildar antes de subir o container `ha-frontend`:
+```bash
+cd homeassistant-frontend && yarn install && yarn build && cd ..
+```
+
 
 ---
 
