@@ -32,10 +32,12 @@ Thumbs.db
 # Arquivos de configuração temporários ou locais
 .env
 *.ini
+!firmware/platformio.ini
 *.config
 
 # Configurações sensíveis (credenciais WiFi, MQTT, DuckDNS, Tuya)
 /data/config.json
+/firmware/data/config.json
 /frontend/public/config.json
 
 # Mosquitto runtime data e logs

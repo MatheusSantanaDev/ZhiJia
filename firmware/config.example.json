@@ -1,0 +1,14 @@
+{
+  "wifi_ssid": "NOME_DA_REDE",
+  "wifi_password": "SENHA_DA_REDE",
+  "admin_user": "admin",
+  "admin_password": "SENHA_DO_PAINEL_WEB",
+  "duckdns_token": "",
+  "duckdns_domain": "",
+  "mqtt_server": "mqtt://192.168.0.108:1883",
+  "mqtt_port": 1883,
+  "server_port": 80,
+  "strip_ip": "",
+  "strip_device_id": "",
+  "strip_local_key": ""
+}
