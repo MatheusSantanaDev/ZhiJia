@@ -44,6 +44,18 @@ const char* mqttTopic       = "home/led/color";
 const char* servoTopic      = "home/servo/angle";
 const char* stripColorTopic = "home/strip/color";
 const char* stripPowerTopic = "home/strip/power";
+const char* ledSetTopic     = "home/led/set";
+const char* ledStateTopic   = "home/led/state";
+const char* ledStatusTopic  = "home/led/status";
+const char* ledDiscoveryTopic = "homeassistant/light/zhijia_led_rgb/config";
+const char* ledDiscoveryJson =
+    "{\"name\":\"LED RGB\",\"unique_id\":\"zhijia_esp32_led_rgb\",\"schema\":\"json\","
+    "\"command_topic\":\"home/led/set\",\"state_topic\":\"home/led/state\","
+    "\"availability_topic\":\"home/led/status\",\"payload_available\":\"online\","
+    "\"payload_not_available\":\"offline\",\"brightness\":true,"
+    "\"supported_color_modes\":[\"rgb\"],"
+    "\"device\":{\"identifiers\":[\"zhijia_esp32\"],\"name\":\"ZhiJia ESP32\","
+    "\"manufacturer\":\"ZhiJia\",\"model\":\"esp32dev\"}}";
 
 
 // Conexão WiFi ========================================================
@@ -112,6 +124,30 @@ void setColor(uint8_t r, uint8_t g, uint8_t b) {
     ledcWrite(0, r);
     ledcWrite(1, g);
     ledcWrite(2, b);
+}
+
+bool ledOn = false;
+uint8_t ledR = 255;
+uint8_t ledG = 255;
+uint8_t ledB = 255;
+uint8_t ledBrightness = 255;
+
+void applyLed() {
+    if (!ledOn) {
+        setColor(0, 0, 0);
+        return;
+    }
+    setColor((ledR * ledBrightness) / 255,
+             (ledG * ledBrightness) / 255,
+             (ledB * ledBrightness) / 255);
+}
+
+void publishLedState() {
+    char state[160];
+    snprintf(state, sizeof(state),
+             "{\"state\":\"%s\",\"color_mode\":\"rgb\",\"color\":{\"r\":%d,\"g\":%d,\"b\":%d},\"brightness\":%d}",
+             ledOn ? "ON" : "OFF", ledR, ledG, ledB, ledBrightness);
+    esp_mqtt_client_publish(mqttClient, ledStateTopic, state, 0, 0, 1);
 }
 
 // Controle Servo ======================================================
@@ -197,6 +233,12 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
             Serial.printf("[MQTT] Inscrito no tópico: %s\n", stripColorTopic);
             esp_mqtt_client_subscribe(event->client, stripPowerTopic, 0);
             Serial.printf("[MQTT] Inscrito no tópico: %s\n", stripPowerTopic);
+            esp_mqtt_client_subscribe(event->client, ledSetTopic, 0);
+            Serial.printf("[MQTT] Inscrito no tópico: %s\n", ledSetTopic);
+            esp_mqtt_client_publish(event->client, ledDiscoveryTopic, ledDiscoveryJson, 0, 0, 1);
+            esp_mqtt_client_publish(event->client, ledStatusTopic, "online", 0, 0, 1);
+            publishLedState();
+            Serial.println("[MQTT] Discovery e estado da luz publicados");
             break;
 
         case MQTT_EVENT_DISCONNECTED:
@@ -204,7 +246,7 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
             break;
 
         case MQTT_EVENT_DATA: {
-            char payload[32];
+            char payload[192];
             char topic[128];
             strncpy(payload, event->data, std::min((size_t)event->data_len, sizeof(payload) - 1));
             payload[std::min((size_t)event->data_len, sizeof(payload) - 1)] = '\0';
@@ -216,9 +258,42 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
                 // Lógica do RGB LED
                 int r, g, b;
                 if (sscanf(payload, "%d,%d,%d", &r, &g, &b) == 3) {
-                    setColor(r, g, b);
+                    ledR = constrain(r, 0, 255);
+                    ledG = constrain(g, 0, 255);
+                    ledB = constrain(b, 0, 255);
+                    ledOn = true;
+                    applyLed();
+                    publishLedState();
                     Serial.printf("[RGB] Nova cor: R=%d, G=%d, B=%d\n", r, g, b);
                 }
+            } else if (strcmp(topic, ledSetTopic) == 0) {
+                JsonDocument doc;
+                if (deserializeJson(doc, payload)) {
+                    Serial.println("[RGB] Payload invalido recebido do HA");
+                    return ESP_OK;
+                }
+
+                const char* haState = doc["state"];
+                if (haState != nullptr) {
+                    ledOn = strcmp(haState, "ON") == 0;
+                }
+
+                int brightness = doc["brightness"] | 0;
+                if (brightness > 0) {
+                    ledBrightness = constrain(brightness, 1, 255);
+                }
+
+                int newR = doc["color"]["r"] | (int)ledR;
+                int newG = doc["color"]["g"] | (int)ledG;
+                int newB = doc["color"]["b"] | (int)ledB;
+                ledR = constrain(newR, 0, 255);
+                ledG = constrain(newG, 0, 255);
+                ledB = constrain(newB, 0, 255);
+
+                applyLed();
+                publishLedState();
+                Serial.printf("[HA] state=%s cor=(%d,%d,%d) brilho=%d\n",
+                              ledOn ? "ON" : "OFF", ledR, ledG, ledB, ledBrightness);
             } else if (strcmp(topic, servoTopic) == 0) {
                 JsonDocument doc;
                 DeserializationError error = deserializeJson(doc, payload);
@@ -269,6 +344,10 @@ void setupMQTT() {
     esp_mqtt_client_config_t mqttConfig = {};
     mqttConfig.uri = mqttServer.c_str();
     mqttConfig.event_handle = mqtt_event_handler;
+    mqttConfig.lwt_topic = ledStatusTopic;
+    mqttConfig.lwt_msg = "offline";
+    mqttConfig.lwt_qos = 0;
+    mqttConfig.lwt_retain = 1;
 
     mqttClient = esp_mqtt_client_init(&mqttConfig);
     esp_mqtt_client_start(mqttClient);
