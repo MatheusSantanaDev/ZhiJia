@@ -399,6 +399,16 @@ class ZhijiaLightTimeline extends HTMLElement {
         );
       });
     }
+
+    if (this._segs.length > 0) {
+      this.dispatchEvent(
+        new CustomEvent("zhijia-timeline-ready", {
+          bubbles: true,
+          composed: true,
+          detail: { entityId: this._entityId },
+        })
+      );
+    }
   }
 }
 
