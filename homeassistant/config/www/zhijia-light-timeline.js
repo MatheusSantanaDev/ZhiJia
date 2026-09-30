@@ -83,16 +83,21 @@ const ZHIJIA_TL = {
     const now = Date.now();
     const start = now - hours * 3600 * 1000;
     const points = (entries || [])
-      .map((e) => ({
-        t:
-          (typeof e.lc === "number"
-            ? e.lc
-            : typeof e.lu === "number"
-              ? e.lu
-              : 0) * 1000,
-        state: e.s,
-        attrs: e.a || {},
-      }))
+      .map((e) => {
+        let t = 0;
+        if (typeof e.lu === "number") {
+          t = e.lu * 1000;
+        } else if (e.last_updated || e.last_changed) {
+          t = Date.parse(e.last_updated || e.last_changed);
+        } else if (typeof e.lc === "number") {
+          t = e.lc * 1000;
+        }
+        return {
+          t,
+          state: e.s !== undefined && e.s !== null ? e.s : e.state,
+          attrs: e.a || e.attributes || {},
+        };
+      })
       .filter((p) => p.t > 0)
       .sort((a, b) => a.t - b.t);
     if (!points.length) return [];
@@ -226,6 +231,7 @@ class ZhijiaLightTimeline extends HTMLElement {
       this._lastFetch = Date.now();
     } catch (err) {
       this._error = err && err.message ? err.message : String(err);
+      console.warn("[zhijia-light-timeline]", this._entityId, this._error);
     } finally {
       this._fetching = false;
       this._render();
