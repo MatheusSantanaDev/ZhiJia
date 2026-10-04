@@ -57,6 +57,33 @@ const char* ledDiscoveryJson =
     "\"device\":{\"identifiers\":[\"zhijia_esp32\"],\"name\":\"ZhiJia ESP32\","
     "\"manufacturer\":\"ZhiJia\",\"model\":\"esp32dev\"}}";
 
+// Consumo de energia (simulado pelo ESP32) ========================
+const char* energyPowerTopic          = "home/energy/power";        // potência instantânea (W)
+const char* energyTotalTopic          = "home/energy/energy_total"; // kWh acumulado (total_increasing)
+const char* energyPowerDiscoveryTopic = "homeassistant/sensor/zhijia_esp32_power/config";
+const char* energyTotalDiscoveryTopic = "homeassistant/sensor/zhijia_esp32_energy_total/config";
+
+// Compartilha o LWT da luz: é o mesmo aparelho, um status só
+const char* energyPowerDiscoveryJson =
+    "{\"name\":\"Consumo Instantâneo\",\"default_entity_id\":\"sensor.zhijia_esp32_power\","
+    "\"unique_id\":\"zhijia_esp32_power\",\"state_topic\":\"home/energy/power\","
+    "\"unit_of_measurement\":\"W\",\"device_class\":\"power\",\"state_class\":\"measurement\","
+    "\"availability_topic\":\"home/led/status\",\"payload_available\":\"online\","
+    "\"payload_not_available\":\"offline\","
+    "\"device\":{\"identifiers\":[\"zhijia_esp32\"],\"name\":\"ZhiJia ESP32\","
+    "\"manufacturer\":\"ZhiJia\",\"model\":\"esp32dev\"}}";
+
+const char* energyTotalDiscoveryJson =
+    "{\"name\":\"Energia Consumida\",\"default_entity_id\":\"sensor.zhijia_esp32_energy_total\","
+    "\"unique_id\":\"zhijia_esp32_energy_total\",\"state_topic\":\"home/energy/energy_total\","
+    "\"unit_of_measurement\":\"kWh\",\"device_class\":\"energy\",\"state_class\":\"total_increasing\","
+    "\"availability_topic\":\"home/led/status\",\"payload_available\":\"online\","
+    "\"payload_not_available\":\"offline\","
+    "\"device\":{\"identifiers\":[\"zhijia_esp32\"],\"name\":\"ZhiJia ESP32\","
+    "\"manufacturer\":\"ZhiJia\",\"model\":\"esp32dev\"}}";
+
+bool mqttConectado = false;
+
 
 // Conexão WiFi ========================================================
 
@@ -330,12 +357,91 @@ void checkEndstops() {
     }
 }
 
+// Energia (simulação de consumo) ==================================
+// Perfil residencial típico em Watts, hora a hora (0h -> 23h).
+// Serve como "casa de teste" enquanto o medidor real não existe.
+const float perfilHorario[24] = {
+    180, 150, 140, 135, 135, 150,  // 00h - 05h (madrugada: geladeira + standby)
+    320, 520, 480, 340, 300, 320,  // 06h - 11h (pico da manhã)
+    380, 340, 300, 310, 360, 480,  // 12h - 17h
+    620, 700, 680, 560, 400, 250   // 18h - 23h (pico da noite)
+};
+
+float kwhAcumulado    = 0.0f;
+float potenciaAtualW  = 0.0f;
+unsigned long ultimaPublicacaoEnergia = 0;
+const unsigned long intervaloEnergiaMs = 10000; // publica a cada 10 s
+
+// Hora local via NTP; se ainda não sincronizou, usa um "dia sintético"
+// contado a partir do boot para a curva não ficar congelada.
+bool horarioAtual(struct tm& tinfo) {
+    if (getLocalTime(&tinfo, 50)) return true;
+
+    unsigned long segDoDia = (millis() / 1000UL) % 86400UL;
+    memset(&tinfo, 0, sizeof(tinfo));
+    tinfo.tm_hour = segDoDia / 3600;
+    tinfo.tm_min  = (segDoDia % 3600) / 60;
+    tinfo.tm_sec  = segDoDia % 60;
+    return false;
+}
+
+float potenciaSimulada(const struct tm& tinfo) {
+    int hora     = tinfo.tm_hour;
+    int horaProx = (hora + 1) % 24;
+
+    // Interpola entre as horas para o consumo subir/descer suavemente
+    float fracao = (tinfo.tm_min + tinfo.tm_sec / 60.0f) / 60.0f;
+    float base   = perfilHorario[hora] + (perfilHorario[horaProx] - perfilHorario[hora]) * fracao;
+
+    if (ledOn) base += 8.0f;              // LED RGB aceso
+    base += (float)random(-45, 46);       // ruído do dia a dia
+
+    // Picos esporádicos: chuveiro, ferro de passar, forno
+    if (random(0, 1000) < 12) base += (float)random(500, 1800);
+
+    return base < 60.0f ? 60.0f : base;
+}
+
+// Integra a potência no tempo e publica no MQTT (a cada intervaloEnergiaMs)
+void publicarEnergia() {
+    if (!mqttConectado || mqttClient == nullptr) return;
+
+    unsigned long agora = millis();
+    if (ultimaPublicacaoEnergia == 0) {
+        ultimaPublicacaoEnergia = agora; // primeira chamada só marca o início
+        return;
+    }
+    if (agora - ultimaPublicacaoEnergia < intervaloEnergiaMs) return;
+
+    float dtSeg = (agora - ultimaPublicacaoEnergia) / 1000.0f;
+    ultimaPublicacaoEnergia = agora;
+
+    struct tm tinfo;
+    horarioAtual(tinfo);
+    potenciaAtualW = potenciaSimulada(tinfo);
+    kwhAcumulado  += potenciaAtualW * dtSeg / 3600000.0f; // W·s -> kWh
+
+    char payload[24];
+    snprintf(payload, sizeof(payload), "%.1f", potenciaAtualW);
+    esp_mqtt_client_publish(mqttClient, energyPowerTopic, payload, 0, 0, 1);
+
+    snprintf(payload, sizeof(payload), "%.4f", kwhAcumulado);
+    esp_mqtt_client_publish(mqttClient, energyTotalTopic, payload, 0, 0, 1);
+}
+
+void publicarDiscoveryEnergia(esp_mqtt_client_handle_t client) {
+    esp_mqtt_client_publish(client, energyPowerDiscoveryTopic, energyPowerDiscoveryJson, 0, 0, 1);
+    esp_mqtt_client_publish(client, energyTotalDiscoveryTopic, energyTotalDiscoveryJson, 0, 0, 1);
+    Serial.println("[MQTT] Discovery dos sensores de energia publicado");
+}
+
 // MQTT ================================================================
 
 esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
             Serial.println("[MQTT] Conectado ao broker!");
+            mqttConectado = true;
             esp_mqtt_client_subscribe(event->client, mqttTopic, 0);
             Serial.printf("[MQTT] Inscrito no tópico: %s\n", mqttTopic);
             esp_mqtt_client_subscribe(event->client, servoTopic, 0);
@@ -349,11 +455,14 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
             esp_mqtt_client_publish(event->client, ledDiscoveryTopic, ledDiscoveryJson, 0, 0, 1);
             esp_mqtt_client_publish(event->client, ledStatusTopic, "online", 0, 0, 1);
             publishLedState();
+            publicarDiscoveryEnergia(event->client);
+            ultimaPublicacaoEnergia = 0; // não integra o tempo desconectado
             Serial.println("[MQTT] Discovery e estado da luz publicados");
             break;
 
         case MQTT_EVENT_DISCONNECTED:
             Serial.println("[MQTT] Desconectado!");
+            mqttConectado = false;
             break;
 
         case MQTT_EVENT_DATA: {
@@ -582,15 +691,19 @@ void setup() {
     if (wifiOk) {
         updateDuckDNS();
         setupMQTT();
+        // Hora local (UTC-3, sem horário de verão no Brasil desde 2019)
+        configTime(-3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
     } else {
         Serial.println("[Boot] Pulando DuckDNS/MQTT sem WiFi. Web server inicia mesmo assim.");
     }
+    randomSeed(esp_random());
     setupWebServer();
 }
 
 void loop() {
     server.handleClient();
     checkEndstops();
+    publicarEnergia(); // simula e publica o consumo a cada 10 s
 
     // Reconexão Wi-Fi: re-escaneia (o AP pode ter mudado de canal/BSSID)
     static unsigned long ultimaTentativa = 0;

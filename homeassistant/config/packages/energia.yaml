@@ -1,0 +1,82 @@
+# Feature: consumo de energia =========================================
+# 1. Sensores de consumo publicados pelo ESP32 via MQTT discovery
+#    (home/energy/power e home/energy/energy_total) já chegam sozinhos
+#    como sensor.zhijia_esp32_power e sensor.zhijia_esp32_energy_total.
+# 2. Aqui ficam os agregados: consumo diário/mensal e quanto isso custa.
+# 3. A tarifa da CEMIG vem da ANEEL (dados abertos) via script Python.
+
+# Tarifa vigente da CEMIG + bandeira do mês (R$/kWh)
+command_line:
+  - sensor:
+      name: "CEMIG Tarifa kWh"
+      unique_id: zhijia_cemig_tarifa_kwh
+      command: "python3 /config/scripts/cemig_tarifa.py"
+      scan_interval: 21600 # 6h
+      unit_of_measurement: "R$/kWh"
+      json_attributes:
+        - tarifa_kwh
+        - tusd_mwh
+        - te_mwh
+        - bandeira
+        - bandeira_competencia
+        - adicional_bandeira_kwh
+        - custo_kwh
+        - vigencia_inicio
+        - vigencia_fim
+        - modalidade
+        - fonte
+        - atualizado_em
+        - stale
+      value_template: "{{ value_json['custo_kwh'] }}"
+
+# Acumula o contador total do ESP32 em periodos de fatura
+utility_meter:
+  consumo_energia_diario:
+    unique_id: zhijia_consumo_energia_diario
+    source: sensor.zhijia_esp32_energy_total
+    cycle: daily
+  consumo_energia_mensal:
+    unique_id: zhijia_consumo_energia_mensal
+    source: sensor.zhijia_esp32_energy_total
+    cycle: monthly
+
+template:
+  - sensor:
+      # Quanto de energia saiu hoje / neste mês (kWh)
+      - name: "Consumo de energia hoje"
+        unique_id: zhijia_consumo_energia_hoje
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ states('sensor.consumo_energia_diario') | float(0) | round(3) }}"
+
+      - name: "Consumo de energia mês"
+        unique_id: zhijia_consumo_energia_mes
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ states('sensor.consumo_energia_mensal') | float(0) | round(3) }}"
+
+      # Quanto isso custa pelo preço da CEMIG (tarifa ANEEL + bandeira)
+      - name: "Custo da energia hoje"
+        unique_id: zhijia_custo_energia_hoje
+        unit_of_measurement: "R$"
+        state_class: total
+        state: >-
+          {{ (states('sensor.consumo_energia_diario') | float(0)
+              * states('sensor.cemig_tarifa_kwh') | float(0)) | round(2) }}
+
+      - name: "Custo da energia mês"
+        unique_id: zhijia_custo_energia_mes
+        unit_of_measurement: "R$"
+        state_class: total
+        state: >-
+          {{ (states('sensor.consumo_energia_mensal') | float(0)
+              * states('sensor.cemig_tarifa_kwh') | float(0)) | round(2) }}
+
+      # Tarifa cheia da CEMIG sem a bandeira (para comparar meses)
+      - name: "Tarifa CEMIG sem bandeira"
+        unique_id: zhijia_tarifa_cemig_sem_bandeira
+        unit_of_measurement: "R$/kWh"
+        state: "{{ state_attr('sensor.cemig_tarifa_kwh', 'tarifa_kwh') | float(0) | round(5) }}"
+        state_class: measurement

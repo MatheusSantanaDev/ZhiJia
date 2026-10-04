@@ -54,6 +54,10 @@ mosquitto/log/
 /homeassistant/config/.ha_run.lock
 /homeassistant/config/configuration.yaml
 
+# Cache da consulta de tarifa CEMIG/ANEEL (gerado pelo script)
+/homeassistant/config/scripts/cemig_tarifa_cache.json
+__pycache__/
+
 # Arquivos relacionados ao PlatformIO
 **/.pio
 **/.piolibdeps

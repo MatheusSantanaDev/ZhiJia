@@ -179,6 +179,7 @@ docker-compose up -d --force-recreate ha-frontend
 | **Fita Tuya** | Controle local via protocolo Tuya (IP/LAN) |
 | **Web Server** | HTTP Basic Auth, arquivos do SPIFFS |
 | **MQTT** | Pub/Sub: `home/led/color`, `home/servo/angle`, `home/strip/*` |
+| **Consumo Energia** | Simulação de consumo no ESP32 (W/kWh) + tarifa CEMIG via ANEEL |
 | **Duck DNS** | DDNS automático |
 | **Previsão Tempo** | BrasilAPI (CEP) + Open-Meteo (6 dias) |
 | **Spotify** | OAuth + Web Playback SDK |
@@ -193,6 +194,53 @@ docker-compose up -d --force-recreate ha-frontend
 | `home/servo/angle` | ESP32 ← Home Assistant | `{"speed": -50}` |
 | `home/strip/color` | Tuya ← Home Assistant | `R,G,B` |
 | `home/strip/power` | Tuya ← Home Assistant | `"on"` / `"off"` |
+| `home/energy/power` | ESP32 → Home Assistant | Potência instantânea em W (ex: `342.5`) |
+| `home/energy/energy_total` | ESP32 → Home Assistant | kWh acumulado, `state_class: total_increasing` |
+
+---
+
+## Consumo de Energia
+
+Fluxo da feature:
+
+```
+ESP32 (simula o consumo)  --MQTT-->  Mosquitto  -->  Home Assistant
+                                                      │
+ANEEL Dados Abertos  <--script Python (CEMIG)---------┘
+```
+
+**1. ESP32** — publica a cada 10 s, com MQTT Discovery (`homeassistant/sensor/.../config`):
+
+| Tópico | Entidade no HA | Unidade |
+|--------|----------------|---------|
+| `home/energy/power` | `sensor.zhijia_esp32_power` | W |
+| `home/energy/energy_total` | `sensor.zhijia_esp32_energy_total` | kWh |
+
+A curva de consumo é uma simulação (perfil residencial 24 h interpolado + ruído +
+picos de chuveiro/forno), e o LED aceso soma 8 W. A hora vem do NTP (`UTC-3`);
+sem NTP ainda, vale um "dia sintético" a partir do boot.
+
+**2. Home Assistant** — `homeassistant/config/packages/energia.yaml`:
+
+| Entidade | O que é |
+|----------|---------|
+| `sensor.cemig_tarifa_kwh` | Tarifa vigente da CEMIG + bandeira (R$/kWh) |
+| `sensor.consumo_energia_diario` / `_mensal` | `utility_meter` do contador do ESP32 |
+| `sensor.consumo_de_energia_hoje` / `_mes` | kWh no período |
+| `sensor.custo_da_energia_hoje` / `_mes` | kWh × tarifa da CEMIG (R$) |
+| `sensor.tarifa_cemig_sem_bandeira` | Só a tarifa, sem o adicional da bandeira |
+
+**3. Tarifa da CEMIG** — `homeassistant/config/scripts/cemig_tarifa.py` consulta a
+API pública da ANEEL (sem login):
+
+- *Tarifas de aplicação das distribuidoras* → `SigAgente=CEMIG-D`, B1 Residencial
+  Convencional → TUSD + TE, convertidos de R$/MWh para R$/kWh
+- *Bandeiras tarifárias* → bandeira do mês + adicional (R$/MWh)
+- Cache em `scripts/cemig_tarifa_cache.json` (6 h) para a API cair sem o sensor sumir
+
+Para ver no **Energy Dashboard** do HA: *Configurações → Energia → Fontes →
+Consumo da rede* e escolha `sensor.zhijia_esp32_energy_total`, com custo
+`sensor.custo_da_energia_mes`.
 
 ---
 
