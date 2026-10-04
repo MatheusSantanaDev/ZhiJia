@@ -58,8 +58,12 @@ const char* ledDiscoveryJson =
     "\"manufacturer\":\"ZhiJia\",\"model\":\"esp32dev\"}}";
 
 // Consumo de energia (simulado pelo ESP32) ========================
-const char* energyPowerTopic          = "home/energy/power";        // potência instantânea (W)
-const char* energyTotalTopic          = "home/energy/energy_total"; // kWh acumulado (total_increasing)
+// O ESP32 simula circuitos separados (fogão, tomadas, luzes), cada um com
+// seu tópico home/energy/<circuito>/... . O total da casa é montado no
+// Home Assistant somando estes circuitos com os dispositivos reais
+// (lavadora, TV, geladeira) que reportam pela própria integração.
+const char* energyPowerTopic          = "home/energy/power";        // total do ESP32 (W)
+const char* energyTotalTopic          = "home/energy/energy_total"; // total do ESP32 (kWh)
 const char* energyPowerDiscoveryTopic = "homeassistant/sensor/zhijia_esp32_power/config";
 const char* energyTotalDiscoveryTopic = "homeassistant/sensor/zhijia_esp32_energy_total/config";
 
@@ -78,6 +82,14 @@ const char* energyTotalDiscoveryJson =
     "\"unique_id\":\"zhijia_esp32_energy_total\",\"state_topic\":\"home/energy/energy_total\","
     "\"unit_of_measurement\":\"kWh\",\"device_class\":\"energy\",\"state_class\":\"total_increasing\","
     "\"availability_topic\":\"home/led/status\",\"payload_available\":\"online\","
+    "\"payload_not_available\":\"offline\","
+    "\"device\":{\"identifiers\":[\"zhijia_esp32\"],\"name\":\"ZhiJia ESP32\","
+    "\"manufacturer\":\"ZhiJia\",\"model\":\"esp32dev\"}}";
+
+// Trecho final repetido no discovery de cada circuito: mesmo LWT da luz
+// (é o mesmo aparelho) e mesmo bloco de device.
+const char* energyDiscoverySufixo =
+    ",\"availability_topic\":\"home/led/status\",\"payload_available\":\"online\","
     "\"payload_not_available\":\"offline\","
     "\"device\":{\"identifiers\":[\"zhijia_esp32\"],\"name\":\"ZhiJia ESP32\","
     "\"manufacturer\":\"ZhiJia\",\"model\":\"esp32dev\"}}";
@@ -357,18 +369,53 @@ void checkEndstops() {
     }
 }
 
-// Energia (simulação de consumo) ==================================
-// Perfil residencial típico em Watts, hora a hora (0h -> 23h).
-// Serve como "casa de teste" enquanto o medidor real não existe.
-const float perfilHorario[24] = {
-    180, 150, 140, 135, 135, 150,  // 00h - 05h (madrugada: geladeira + standby)
-    320, 520, 480, 340, 300, 320,  // 06h - 11h (pico da manhã)
-    380, 340, 300, 310, 360, 480,  // 12h - 17h
-    620, 700, 680, 560, 400, 250   // 18h - 23h (pico da noite)
+// Energia (simulação de consumo por circuito) =====================
+// Cada circuito tem sua própria curva de 24 h (0h -> 23h) em Watts e seu
+// próprio acumulador de kWh. Serve como "casa de teste" enquanto o medidor
+// real não existe.
+// Obs.: TV Samsung e geladeira LG ficam de fora aqui: quando ligarem nas
+// integrações deles entram direto no total que o HA monta.
+struct Circuito {
+    const char* id;        // slug usado no tópico e no entity_id
+    const char* nome;      // nome amigável exibido no HA
+    float perfil[24];      // potência típica hora a hora (W)
+    int   ruido;           // ±W do ruído do dia a dia
+    int   chancePico;      // chance de pico, por 1000, a cada ciclo
+    int   picoMin;         // W mínimos do pico
+    int   picoMax;         // W máximos do pico
+    float potenciaW;       // último valor calculado
+    float kwh;             // energia acumulada deste circuito
 };
 
-float kwhAcumulado    = 0.0f;
-float potenciaAtualW  = 0.0f;
+Circuito circuitos[] = {
+    // Fogão: pico no café (6-8h), almoço (11-13h) e jantar (18-21h)
+    {"fogao", "Fogão",
+     {   0,   0,   0,   0,   0,   0, 150, 600, 200,   0,   0, 800,
+      1600, 900,   0,   0,   0, 200, 900,1500,1200, 400,   0,   0},
+     40, 8, 300, 900, 0, 0},
+    // Tomadas: standby do roteador o dia todo + TV/notebook à noite
+    {"tomadas", "Tomadas",
+     {  60,  55,  50,  50,  50,  55,  70,  90, 100, 110, 110, 100,
+      120, 130, 120, 120, 130, 150, 180, 200, 210, 200, 150,  90},
+     12, 4, 60, 250, 0, 0},
+    // Luz da sala: só à noite (17h-23h)
+    {"luz_sala", "Luz Sala",
+     {   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+        0,   0,   0,   0,   0,  10,  40,  50,  50,  50,  40,  20},
+     4, 0, 0, 0, 0, 0},
+    // Luz do quarto: madrugada e antes de dormir
+    {"luz_quarto", "Luz Quarto",
+     {  15,  10,   0,   0,   0,   0,   5,   0,   0,   0,   0,   0,
+        0,   0,   0,   0,   0,   0,   0,   0,   5,  15,  15,  15},
+     3, 0, 0, 0, 0, 0},
+    // Luz da cozinha: manhã (6-8h) e noite (18-22h)
+    {"luz_cozinha", "Luz Cozinha",
+     {   0,   0,   0,   0,   0,   0,  20,  30,  15,   0,   0,   0,
+        0,   0,   0,   0,   0,   0,  30,  40,  40,  30,  15,   0},
+     3, 0, 0, 0, 0, 0},
+};
+const int NUM_CIRCUITOS = sizeof(circuitos) / sizeof(circuitos[0]);
+
 unsigned long ultimaPublicacaoEnergia = 0;
 const unsigned long intervaloEnergiaMs = 10000; // publica a cada 10 s
 
@@ -385,24 +432,28 @@ bool horarioAtual(struct tm& tinfo) {
     return false;
 }
 
-float potenciaSimulada(const struct tm& tinfo) {
+// Potência instantânea de um circuito: interpola entre as horas para a curva
+// subir/descer suavemente, soma o ruído do dia a dia e ocasionalmente um pico.
+float potenciaCircuito(Circuito& c, const struct tm& tinfo) {
     int hora     = tinfo.tm_hour;
     int horaProx = (hora + 1) % 24;
-
-    // Interpola entre as horas para o consumo subir/descer suavemente
     float fracao = (tinfo.tm_min + tinfo.tm_sec / 60.0f) / 60.0f;
-    float base   = perfilHorario[hora] + (perfilHorario[horaProx] - perfilHorario[hora]) * fracao;
+    float base   = c.perfil[hora] + (c.perfil[horaProx] - c.perfil[hora]) * fracao;
 
-    if (ledOn) base += 8.0f;              // LED RGB aceso
-    base += (float)random(-45, 46);       // ruído do dia a dia
+    // O LED RGB do próprio ESP32 puxa da tomada da sala
+    if (strcmp(c.id, "tomadas") == 0 && ledOn) base += 8.0f;
 
-    // Picos esporádicos: chuveiro, ferro de passar, forno
-    if (random(0, 1000) < 12) base += (float)random(500, 1800);
+    base += (float)random(-c.ruido, c.ruido + 1);
 
-    return base < 60.0f ? 60.0f : base;
+    // Picos esporádicos: forno ligado, carregador, nobreak
+    if (c.chancePico > 0 && random(0, 1000) < c.chancePico)
+        base += (float)random(c.picoMin, c.picoMax + 1);
+
+    return base < 0.0f ? 0.0f : base;
 }
 
-// Integra a potência no tempo e publica no MQTT (a cada intervaloEnergiaMs)
+// Integra a potência de cada circuito no tempo e publica no MQTT
+// (a cada intervaloEnergiaMs)
 void publicarEnergia() {
     if (!mqttConectado || mqttClient == nullptr) return;
 
@@ -418,21 +469,67 @@ void publicarEnergia() {
 
     struct tm tinfo;
     horarioAtual(tinfo);
-    potenciaAtualW = potenciaSimulada(tinfo);
-    kwhAcumulado  += potenciaAtualW * dtSeg / 3600000.0f; // W·s -> kWh
 
     char payload[24];
-    snprintf(payload, sizeof(payload), "%.1f", potenciaAtualW);
+    char topico[96];
+    float somaW   = 0.0f;
+    float somaKwh = 0.0f;
+
+    for (int i = 0; i < NUM_CIRCUITOS; i++) {
+        Circuito& c = circuitos[i];
+        c.potenciaW = potenciaCircuito(c, tinfo);
+        c.kwh += c.potenciaW * dtSeg / 3600000.0f; // W·s -> kWh
+        somaW   += c.potenciaW;
+        somaKwh += c.kwh;
+
+        snprintf(topico, sizeof(topico), "home/energy/%s/power", c.id);
+        snprintf(payload, sizeof(payload), "%.1f", c.potenciaW);
+        esp_mqtt_client_publish(mqttClient, topico, payload, 0, 0, 1);
+
+        snprintf(topico, sizeof(topico), "home/energy/%s/energy_total", c.id);
+        snprintf(payload, sizeof(payload), "%.4f", c.kwh);
+        esp_mqtt_client_publish(mqttClient, topico, payload, 0, 0, 1);
+    }
+
+    // Total do ESP32 = soma dos circuitos simulados por ele
+    snprintf(payload, sizeof(payload), "%.1f", somaW);
     esp_mqtt_client_publish(mqttClient, energyPowerTopic, payload, 0, 0, 1);
 
-    snprintf(payload, sizeof(payload), "%.4f", kwhAcumulado);
+    snprintf(payload, sizeof(payload), "%.4f", somaKwh);
     esp_mqtt_client_publish(mqttClient, energyTotalTopic, payload, 0, 0, 1);
 }
 
 void publicarDiscoveryEnergia(esp_mqtt_client_handle_t client) {
     esp_mqtt_client_publish(client, energyPowerDiscoveryTopic, energyPowerDiscoveryJson, 0, 0, 1);
     esp_mqtt_client_publish(client, energyTotalDiscoveryTopic, energyTotalDiscoveryJson, 0, 0, 1);
-    Serial.println("[MQTT] Discovery dos sensores de energia publicado");
+
+    // Um par de sensores (potência + energia) por circuito simulado
+    char topico[96];
+    char json[640];
+    for (int i = 0; i < NUM_CIRCUITOS; i++) {
+        const Circuito& c = circuitos[i];
+
+        snprintf(topico, sizeof(topico),
+                 "homeassistant/sensor/zhijia_esp32_%s_power/config", c.id);
+        snprintf(json, sizeof(json),
+            "{\"name\":\"%s Potência\",\"default_entity_id\":\"sensor.zhijia_esp32_%s_power\","
+            "\"unique_id\":\"zhijia_esp32_%s_power\",\"state_topic\":\"home/energy/%s/power\","
+            "\"unit_of_measurement\":\"W\",\"device_class\":\"power\",\"state_class\":\"measurement\"%s",
+            c.nome, c.id, c.id, c.id, energyDiscoverySufixo);
+        esp_mqtt_client_publish(client, topico, json, 0, 0, 1);
+
+        snprintf(topico, sizeof(topico),
+                 "homeassistant/sensor/zhijia_esp32_%s_energy_total/config", c.id);
+        snprintf(json, sizeof(json),
+            "{\"name\":\"%s Energia\",\"default_entity_id\":\"sensor.zhijia_esp32_%s_energy_total\","
+            "\"unique_id\":\"zhijia_esp32_%s_energy_total\",\"state_topic\":\"home/energy/%s/energy_total\","
+            "\"unit_of_measurement\":\"kWh\",\"device_class\":\"energy\",\"state_class\":\"total_increasing\"%s",
+            c.nome, c.id, c.id, c.id, energyDiscoverySufixo);
+        esp_mqtt_client_publish(client, topico, json, 0, 0, 1);
+    }
+
+    Serial.printf("[MQTT] Discovery da energia publicado: %d circuitos + total\n",
+                  NUM_CIRCUITOS);
 }
 
 // MQTT ================================================================
