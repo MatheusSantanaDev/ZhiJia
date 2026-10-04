@@ -38,7 +38,6 @@ Thumbs.db
 # Configurações sensíveis (credenciais WiFi, MQTT, DuckDNS, Tuya)
 /data/config.json
 /firmware/data/config.json
-/frontend/public/config.json
 
 # Mosquitto runtime data e logs
 mosquitto/data/

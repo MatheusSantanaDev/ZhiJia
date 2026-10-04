@@ -17,31 +17,6 @@ ZhiJia/
 │   ├── extra_script.py      # Auto-upload SPIFFS
 │   └── test/                # Testes unitários
 │
-├── frontend/                # Interface Web (software)
-│   └── public/              # Arquivos estáticos servidos pelo Nginx
-│       ├── index.html
-│       ├── styles.css
-│       ├── config.example.json
-│       ├── icons/
-│       └── js/              # Módulos ES6 organizados por domínio
-│           ├── app.js               # Entry point
-│           ├── config.js            # Constantes e configuração
-│           ├── mqtt/
-│           │   ├── client.js        # Conexão MQTT + pub/sub
-│           │   └── status.js        # Status de conexão UI
-│           ├── led/
-│           │   └── controller.js    # RGB LED + presets
-│           ├── servo/
-│           │   └── controller.js    # Servo motor + speed slider
-│           ├── weather/
-│           │   ├── api.js           # BrasilAPI + Open-Meteo
-│           │   └── ui.js            # Renderização do card tempo
-│           ├── spotify/
-│           │   └── spotify.js       # OAuth PKCE + Web API
-│           └── utils/
-│               ├── color.js         # RGB/HSL conversões
-│               └── location.js      # CEP/geocoding
-│
 ├── mosquitto/               # Configuração MQTT Broker
 │   ├── config/mosquitto.conf
 │   ├── data/
@@ -113,23 +88,28 @@ cd homeassistant-frontend && yarn install && yarn build && cd ..
 ## Arquitetura do Sistema
 
 ```
-┌──────────────────┐     WebSocket (9001)      ┌──────────────────┐
-│   Frontend       │◄─────────────────────────►│   Mosquitto      │
-│   (Nginx:8080)   │                           │   MQTT Broker    │
-└──────────────────┘                           └────────┬─────────┘
-                                                        │
-                                              MQTT (1883)│
-                                                        ▼
-                                          ┌───────────────────────┐
-                                          │       ESP32           │
-                                          │  - RGB LED (PWM)      │
-                                          │  - Servo Motor        │
-                                          │  - Web Server (80)    │
-                                          │  - Tuya Strip (LAN)   │
-                                          └───────────────────────┘
+┌──────────────────────┐                        ┌──────────────────────┐
+│  Home Assistant UI   │   HTTP/WebSocket:8123  │  Home Assistant      │
+│  (Nginx ha-frontend) │◄──────────────────────►│  (backend)           │
+└──────────────────────┘                        └──────────┬───────────┘
+                                                           │ MQTT (1883)
+                                                           ▼
+                                                 ┌──────────────────────┐
+                                                 │   Mosquitto          │
+                                                 │   MQTT Broker        │
+                                                 └──────────┬───────────┘
+                                                            │ MQTT (1883)
+                                                            ▼
+                                              ┌───────────────────────┐
+                                              │       ESP32           │
+                                              │  - RGB LED (PWM)      │
+                                              │  - Servo Motor        │
+                                              │  - Web Server (80)    │
+                                              │  - Tuya Strip (LAN)   │
+                                              └───────────────────────┘
 ```
 
-- **Frontend** → Conecta via WebSocket na porta 9001
+- **Interface** → apenas a do Home Assistant (porta 8123)
 - **ESP32** → Conecta via MQTT TCP na porta 1883
 - **Broker local** → Substitui broker público (HiveMQ)
 
@@ -142,9 +122,9 @@ docker-compose up -d
 ```
 
 Serviços disponíveis:
-- **Frontend:** http://localhost:8080 (ou http://<seu-ip>:8080)
-- **MQTT Broker:** `mqtt://<seu-ip>:1883` (ESP32)
-- **MQTT WebSocket:** `ws://<seu-ip>:9001/mqtt` (Frontend)
+- **Home Assistant:** http://localhost:8123 (ou http://<seu-ip>:8123)
+- **MQTT Broker:** `mqtt://<seu-ip>:1883` (ESP32 e Home Assistant)
+- **MQTT WebSocket:** `ws://<seu-ip>:9001/mqtt` (opcional, clientes de browser)
 
 ---
 
@@ -179,15 +159,14 @@ Serviços disponíveis:
 
 ## Desenvolvimento Frontend
 
-Os arquivos em `frontend/public/` são servidos diretamente pelo Nginx. Edite e recarregue o browser.
+A interface é **apenas a do Home Assistant**, customizada no submódulo `homeassistant-frontend` (fork `MatheusSantanaDev/frontend`, branch `ZhiJia`). Cards, temas e ajustes visuais vivem lá.
 
-**Arquitetura modular (ES Modules):**
-- Cada feature tem seu próprio módulo (`led/`, `servo/`, `weather/`, `spotify/`, `mqtt/`)
-- `app.js` é o entry point que inicializa tudo
-- `config.js` centraliza constantes (tópicos, portas, ícones)
-- `utils/` contém funções puras reutilizáveis (cor, localização)
+Após alterações no submódulo, rebuild e reinício:
 
-Para desenvolvimento com hot-reload, use um servidor local apontando para `frontend/public/` (ex: `npx serve frontend/public` ou VS Code Live Server).
+```bash
+cd homeassistant-frontend && yarn install && yarn build && cd ..
+docker-compose up -d --force-recreate ha-frontend
+```
 
 ---
 
@@ -210,10 +189,10 @@ Para desenvolvimento com hot-reload, use um servidor local apontando para `front
 
 | Tópico | Direção | Payload |
 |--------|---------|---------|
-| `home/led/color` | ESP32 ← Frontend | `R,G,B` (ex: `255,128,0`) |
-| `home/servo/angle` | ESP32 ← Frontend | `{"speed": -50}` |
-| `home/strip/color` | Tuya ← Frontend | `R,G,B` |
-| `home/strip/power` | Tuya ← Frontend | `"on"` / `"off"` |
+| `home/led/color` | ESP32 ← Home Assistant | `R,G,B` (ex: `255,128,0`) |
+| `home/servo/angle` | ESP32 ← Home Assistant | `{"speed": -50}` |
+| `home/strip/color` | Tuya ← Home Assistant | `R,G,B` |
+| `home/strip/power` | Tuya ← Home Assistant | `"on"` / `"off"` |
 
 ---
 
@@ -225,7 +204,7 @@ docker-compose up -d
 
 # Logs
 docker-compose logs -f mosquitto
-docker-compose logs -f frontend
+docker-compose logs -f ha-frontend
 
 # Parar tudo
 docker-compose down

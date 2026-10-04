@@ -50,21 +50,6 @@ services:
     networks:
       - zhijia-network
 
-  # Your custom frontend (existing)
-  frontend:
-    image: nginx:alpine
-    container_name: zhijia-frontend
-    ports:
-      - "8080:80"
-    volumes:
-      - ./frontend/public:/usr/share/nginx/html:ro
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    restart: unless-stopped
-    depends_on:
-      - mosquitto
-    networks:
-      - zhijia-network
-
 networks:
   zhijia-network:
     driver: bridge
