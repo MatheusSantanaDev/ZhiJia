@@ -60,15 +60,122 @@ const char* ledDiscoveryJson =
 
 // Conexão WiFi ========================================================
 
-void connectWiFi() {
-    WiFi.begin(ssid, password);
-    Serial.print("Conectando ao WiFi");
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
+const char* wifiStatusStr(wl_status_t status) {
+    switch (status) {
+        case WL_IDLE_STATUS:      return "IDLE";
+        case WL_NO_SSID_AVAIL:    return "NO_SSID_AVAIL (rede nao encontrada)";
+        case WL_SCAN_COMPLETED:   return "SCAN_COMPLETED";
+        case WL_CONNECTED:        return "CONNECTED";
+        case WL_CONNECT_FAILED:   return "CONNECT_FAILED (autenticacao/senha)";
+        case WL_CONNECTION_LOST:  return "CONNECTION_LOST";
+        case WL_DISCONNECTED:     return "DISCONNECTED";
+        default:                  return "DESCONHECIDO";
     }
-    Serial.println("\nConectado!" );
-    Serial.println("Acesse em: http://" + duckDNSDomain + ":" + serverPort);
+}
+
+// Códigos de motivo (esp_wifi_disconnect_reason_t) mais comuns
+void printWifiReason(uint8_t reason) {
+    const char* msg = "outro";
+    switch (reason) {
+        case 2:  msg = "auth expirada"; break;
+        case 3:  msg = "AP encerrou a autenticacao"; break;
+        case 5:  msg = "AP com muitos clientes (limite)"; break;
+        case 15: msg = "timeout do handshake 4-way -> SENHA ERRADA"; break;
+        case 200: msg = "beacon timeout -> rede fora de alcance (ou 5 GHz)"; break;
+        case 201: msg = "AP nao encontrado -> SSID so 2.4 GHz / invisivel / fora de alcance"; break;
+        case 202: msg = "falha de autenticacao -> SENHA ERRADA"; break;
+        case 203: msg = "falha de associacao"; break;
+        case 204: msg = "timeout de handshake -> SENHA ERRADA"; break;
+    }
+    Serial.printf("[WiFi] Desconectado (reason=%u: %s)\n", reason, msg);
+}
+
+void wifiEvent(WiFiEvent_t event, arduino_event_info_t info) {
+    switch (event) {
+        case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+            Serial.println("[WiFi] Conectado! IP: " + WiFi.localIP().toString() +
+                           " | Gateway: " + WiFi.gatewayIP().toString());
+            break;
+        case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+            printWifiReason(info.wifi_sta_disconnected.reason);
+            break;
+        case ARDUINO_EVENT_WIFI_STA_START:
+            Serial.println("[WiFi] Estacao iniciada");
+            break;
+        default:
+            break;
+    }
+}
+
+// Localiza o AP de 2.4 GHz com o SSID desejado (o ESP32 não vê 5 GHz,
+// e em roteadores com banda dupla/steering o ESP perde tempo no AP errado)
+bool findAP24(uint8_t* bssid, int& canal) {
+    Serial.println("[WiFi] Escaneando redes (2.4 GHz)...");
+    int n = WiFi.scanNetworks();
+    bool found = false;
+    for (int i = 0; i < n; i++) {
+        if (strcmp(WiFi.SSID(i).c_str(), ssid) == 0 && WiFi.channel(i) <= 14) {
+            memcpy(bssid, WiFi.BSSID(i), 6);
+            canal = WiFi.channel(i);
+            found = true;
+            Serial.printf("[WiFi] AP encontrado: canal %d, BSSID %02X:%02X:%02X:%02X:%02X:%02X (sinal %d dBm)\n",
+                          canal, bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5], WiFi.RSSI(i));
+            break;
+        }
+    }
+    WiFi.scanDelete();
+    if (!found) Serial.println("[WiFi] SSID nao visto na varredura de 2.4 GHz.");
+    return found;
+}
+
+bool connectWiFi(int tentativas = 3) {
+    if (strlen(ssid) == 0) {
+        Serial.println("[WiFi] SSID VAZIO - /config.json nao foi carregado do SPIFFS.");
+        Serial.println("[WiFi] Rode: pio run -t uploadfs  (envia data/config.json para o ESP)");
+        return false;
+    }
+
+    static bool eventoRegistrado = false;
+    if (!eventoRegistrado) {
+        WiFi.onEvent(wifiEvent);
+        eventoRegistrado = true;
+    }
+    WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false);
+
+    uint8_t bssid[6] = {0};
+    int canal = 0;
+    bool apEncontrado = findAP24(bssid, canal);
+
+    for (int t = 1; t <= tentativas; t++) {
+        if (apEncontrado) {
+            WiFi.begin(ssid, password, canal, bssid); // fixa no AP de 2.4 GHz
+        } else {
+            WiFi.begin(ssid, password);
+        }
+        Serial.printf("[WiFi] Tentativa %d/%d - conectando a \"%s\"", t, tentativas, ssid);
+
+        unsigned long inicio = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - inicio < 15000) {
+            delay(500);
+            Serial.print(".");
+        }
+        Serial.println();
+
+        if (WiFi.status() == WL_CONNECTED) {
+            WiFi.setAutoReconnect(true);
+            return true;
+        }
+        Serial.printf("[WiFi] Sem sucesso. status=%s\n", wifiStatusStr(WiFi.status()));
+        WiFi.disconnect(false, false);
+        delay(1000);
+    }
+
+    Serial.println("[WiFi] Nao conectou depois das tentativas. Verifique:");
+    Serial.println("[WiFi]   1. Rede de 2.4 GHz (ESP32 NAO suporta 5 GHz)");
+    Serial.println("[WiFi]   2. SSID e senha iguais aos do roteador (sem espacos extras)");
+    Serial.println("[WiFi]   3. Se o motivo acima for 201/200 = rede nao vista pelo ESP");
+    return false;
 }
 
 // Duck DNS ============================================================
@@ -84,6 +191,10 @@ String getPublicIP() {
 }
 
 void updateDuckDNS() {
+    if (duckDNSDomain.isEmpty() || duckDNSToken.isEmpty()) {
+        Serial.println("[DuckDNS] Nao configurado - pulando.");
+        return;
+    }
     HTTPClient http;
     String publicIP = getPublicIP();
     
@@ -415,13 +526,15 @@ void loadConfig() {
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, configFile);
     if (error) {
-        Serial.println("Erro ao ler config.json!");
+        Serial.println("Erro ao ler config.json! JSON invalido (comentarios // ou vírgula extra).");
+        Serial.println(String("  -> ") + error.c_str());
+        configFile.close();
         return;
     }
 
-    // Carregar configurações
-    strlcpy(ssid, doc["wifi_ssid"], sizeof(ssid));
-    strlcpy(password, doc["wifi_password"], sizeof(password));
+    // Carregar configurações (| "" evita crash se a chave nao existir)
+    strlcpy(ssid, doc["wifi_ssid"] | "", sizeof(ssid));
+    strlcpy(password, doc["wifi_password"] | "", sizeof(password));
     adminUser     = doc["admin_user"].as<String>();
     adminPassword = doc["admin_password"].as<String>();
     duckDNSToken  = doc["duckdns_token"].as<String>();
@@ -436,6 +549,10 @@ void loadConfig() {
     stripLocalKey = doc["strip_local_key"].as<String>();
 
     configFile.close();
+
+    Serial.printf("[CFG] /config.json carregado. SSID=\"%s\" MQTT=%s\n",
+                  ssid, mqttServer.c_str());
+    if (strlen(ssid) == 0) Serial.println("[CFG] Atencao: SSID vazio!");
 }
 
 void initSystems() {
@@ -455,16 +572,31 @@ void initSystems() {
 
 void setup() {
     Serial.begin(115200);
-    
+    delay(1000);
+    Serial.println("\n=== ZhiJia ESP32 - Boot ===");
+
     // Inicializar sistemas
     initSystems();
-    connectWiFi();
-    updateDuckDNS();
-    setupMQTT();
+    bool wifiOk = connectWiFi();
+
+    if (wifiOk) {
+        updateDuckDNS();
+        setupMQTT();
+    } else {
+        Serial.println("[Boot] Pulando DuckDNS/MQTT sem WiFi. Web server inicia mesmo assim.");
+    }
     setupWebServer();
 }
 
 void loop() {
     server.handleClient();
     checkEndstops();
+
+    // Reconexão Wi-Fi: re-escaneia (o AP pode ter mudado de canal/BSSID)
+    static unsigned long ultimaTentativa = 0;
+    if (WiFi.status() != WL_CONNECTED && millis() - ultimaTentativa > 15000) {
+        ultimaTentativa = millis();
+        Serial.println("[WiFi] Conexao perdida - reconectando...");
+        connectWiFi(2);
+    }
 }
