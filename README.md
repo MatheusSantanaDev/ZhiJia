@@ -179,6 +179,7 @@ docker-compose up -d --force-recreate ha-frontend
 | **Fita Tuya** | Controle local via protocolo Tuya (IP/LAN) |
 | **Web Server** | HTTP Basic Auth, arquivos do SPIFFS |
 | **MQTT** | Pub/Sub: `home/led/color`, `home/servo/angle`, `home/strip/*` |
+| **Consumo Energia** | Simulação por circuito no ESP32 (W/kWh) + tarifa CEMIG via ANEEL |
 | **Duck DNS** | DDNS automático |
 | **Previsão Tempo** | BrasilAPI (CEP) + Open-Meteo (6 dias) |
 | **Spotify** | OAuth + Web Playback SDK |
@@ -193,6 +194,72 @@ docker-compose up -d --force-recreate ha-frontend
 | `home/servo/angle` | ESP32 ← Home Assistant | `{"speed": -50}` |
 | `home/strip/color` | Tuya ← Home Assistant | `R,G,B` |
 | `home/strip/power` | Tuya ← Home Assistant | `"on"` / `"off"` |
+| `home/energy/power` | ESP32 → Home Assistant | Total do ESP32 em W (soma dos circuitos) |
+| `home/energy/energy_total` | ESP32 → Home Assistant | kWh acumulado, `state_class: total_increasing` |
+| `home/energy/<c>/power` | ESP32 → Home Assistant | Potência de um circuito em W (ex: `home/energy/fogao/power`) |
+| `home/energy/<c>/energy_total` | ESP32 → Home Assistant | kWh acumulado do circuito |
+
+---
+
+## Consumo de Energia
+
+Fluxo da feature:
+
+```
+ESP32 (simula o consumo)  --MQTT-->  Mosquitto  -->  Home Assistant
+                                                      │
+ANEEL Dados Abertos  <--script Python (CEMIG)---------┘
+```
+
+**1. ESP32** — publica a cada 10 s, com MQTT Discovery (`homeassistant/sensor/.../config`),
+um circuito por par de tópicos:
+
+| Tópico | Entidade no HA | Unidade |
+|--------|----------------|---------|
+| `home/energy/power` | `sensor.zhijia_esp32_power` — total do ESP32 | W |
+| `home/energy/energy_total` | `sensor.zhijia_esp32_energy_total` — total do ESP32 | kWh |
+| `home/energy/<c>/power` | `sensor.zhijia_esp32_<c>_power` — potência do circuito | W |
+| `home/energy/<c>/energy_total` | `sensor.zhijia_esp32_<c>_energy_total` — kWh do circuito | kWh |
+
+Circuitos simulados: **`fogao`** (pico no café, almoço e jantar), **`tomadas`**
+(standby + TV/notebook à noite) e as luzes **`luz_sala`**, **`luz_quarto`**,
+**`luz_cozinha`** (cada uma com seu horário). Cada um tem curva própria de 24 h
+interpolada + ruído + picos, e a hora vem do NTP (`UTC-3`); sem NTP ainda, vale
+um "dia sintético" a partir do boot. O LED aceso soma 8 W nas tomadas.
+
+**2. Home Assistant** — `homeassistant/config/packages/energia.yaml`:
+
+| Entidade | O que é |
+|----------|---------|
+| `sensor.energia_importada_total` | **Total da casa** = ESP32 + dispositivos reais |
+| `sensor.potencia_total_da_casa` | Potência instantânea da casa (ESP32 + reais) |
+| `sensor.cemig_tarifa_kwh` | Tarifa vigente da CEMIG + bandeira (R$/kWh) |
+| `sensor.consumo_energia_diario` / `_mensal` | `utility_meter` do total da casa |
+| `sensor.consumo_de_energia_hoje` / `_mes` | kWh no período |
+| `sensor.custo_da_energia_hoje` / `_mes` | kWh × tarifa da CEMIG (R$) |
+| `sensor.tarifa_cemig_sem_bandeira` | Só a tarifa, sem o adicional da bandeira |
+
+O total soma o ESP32 com os aparelhos que medem o próprio consumo. Hoje só a
+**lavadora Hisense** reporta (SmartThings, `sensor.lavanderia_lavadora_energia`);
+**TV Samsung** e **geladeira LG** entram na soma e no painel assim que ligarem
+nas integrações deles — é só acrescentar o sensor no template.
+
+**3. Tarifa da CEMIG** — `homeassistant/config/scripts/cemig_tarifa.py` consulta a
+API pública da ANEEL (sem login):
+
+- *Tarifas de aplicação das distribuidoras* → `SigAgente=CEMIG-D`, B1 Residencial
+  Convencional → TUSD + TE, convertidos de R$/MWh para R$/kWh
+- *Bandeiras tarifárias* → bandeira do mês + adicional (R$/MWh)
+- Cache em `scripts/cemig_tarifa_cache.json` (6 h) para a API cair sem o sensor sumir
+
+**Energy Dashboard** já vem preenchido pelo pacote (`.storage/energy`):
+
+| Seção do painel | Entidade |
+|-----------------|----------|
+| Consumo da rede (Energia importada) | `sensor.energia_importada_total` |
+| Potência da rede | `sensor.potencia_total_da_casa` |
+| Preço da energia | `sensor.cemig_tarifa_kwh` (custo calculado pelo HA) |
+| Dispositivos | `sensor.zhijia_esp32_fogao_*`, `_tomadas_*`, `_luz_*` e `sensor.lavanderia_lavadora_energia` |
 
 ---
 

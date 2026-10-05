@@ -1,0 +1,110 @@
+# Feature: consumo de energia =========================================
+# 1. O ESP32 publica via MQTT discovery um circuito por tópico
+#    home/energy/<circuito>/power|energy_total (fogão, tomadas, luzes)
+#    mais o total dele em home/energy/power|energy_total.
+# 2. Aqui ficam os agregados: total da casa (ESP32 + dispositivos reais),
+#    consumo diário/mensal e quanto isso custa.
+# 3. A tarifa da CEMIG vem da ANEEL (dados abertos) via script Python.
+
+# Tarifa vigente da CEMIG + bandeira do mês (R$/kWh)
+command_line:
+  - sensor:
+      name: "CEMIG Tarifa kWh"
+      unique_id: zhijia_cemig_tarifa_kwh
+      command: "python3 /config/scripts/cemig_tarifa.py"
+      scan_interval: 21600 # 6h
+      unit_of_measurement: "R$/kWh"
+      json_attributes:
+        - tarifa_kwh
+        - tusd_mwh
+        - te_mwh
+        - bandeira
+        - bandeira_competencia
+        - adicional_bandeira_kwh
+        - custo_kwh
+        - vigencia_inicio
+        - vigencia_fim
+        - modalidade
+        - fonte
+        - atualizado_em
+        - stale
+      value_template: "{{ value_json['custo_kwh'] }}"
+
+# Acumula o total da casa em periodos de fatura
+utility_meter:
+  consumo_energia_diario:
+    unique_id: zhijia_consumo_energia_diario
+    source: sensor.energia_importada_total
+    cycle: daily
+  consumo_energia_mensal:
+    unique_id: zhijia_consumo_energia_mensal
+    source: sensor.energia_importada_total
+    cycle: monthly
+
+template:
+  - sensor:
+      # Total da casa = circuitos simulados do ESP32 + dispositivos reais.
+      # Hoje só a lavadora reporta sozinha; TV Samsung e geladeira LG entram
+      # na lista assim que ligarem nas integrações deles.
+      - name: "Energia importada total"
+        unique_id: zhijia_energia_importada_total
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+        availability: >-
+          {{ has_value('sensor.zhijia_esp32_energy_total')
+             and has_value('sensor.lavanderia_lavadora_energia') }}
+        state: >-
+          {{ (states('sensor.zhijia_esp32_energy_total') | float(0)
+              + states('sensor.lavanderia_lavadora_energia') | float(0)) | round(4) }}
+
+      # Potência instantânea da casa (a lavadora pode falar sozinha, por isso
+      # só o ESP32 derruba o sensor: indisponibilidade dele não zera o total)
+      - name: "Potência total da casa"
+        unique_id: zhijia_potencia_total_casa
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        availability: "{{ has_value('sensor.zhijia_esp32_power') }}"
+        state: >-
+          {{ (states('sensor.zhijia_esp32_power') | float(0)
+              + states('sensor.lavanderia_lavadora_potencia') | float(0)) | round(1) }}
+
+      # Quanto de energia saiu hoje / neste mês (kWh)
+      - name: "Consumo de energia hoje"
+        unique_id: zhijia_consumo_energia_hoje
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ states('sensor.consumo_energia_diario') | float(0) | round(3) }}"
+
+      - name: "Consumo de energia mês"
+        unique_id: zhijia_consumo_energia_mes
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total
+        state: "{{ states('sensor.consumo_energia_mensal') | float(0) | round(3) }}"
+
+      # Quanto isso custa pelo preço da CEMIG (tarifa ANEEL + bandeira)
+      - name: "Custo da energia hoje"
+        unique_id: zhijia_custo_energia_hoje
+        unit_of_measurement: "R$"
+        state_class: total
+        state: >-
+          {{ (states('sensor.consumo_energia_diario') | float(0)
+              * states('sensor.cemig_tarifa_kwh') | float(0)) | round(2) }}
+
+      - name: "Custo da energia mês"
+        unique_id: zhijia_custo_energia_mes
+        unit_of_measurement: "R$"
+        state_class: total
+        state: >-
+          {{ (states('sensor.consumo_energia_mensal') | float(0)
+              * states('sensor.cemig_tarifa_kwh') | float(0)) | round(2) }}
+
+      # Tarifa cheia da CEMIG sem a bandeira (para comparar meses)
+      - name: "Tarifa CEMIG sem bandeira"
+        unique_id: zhijia_tarifa_cemig_sem_bandeira
+        unit_of_measurement: "R$/kWh"
+        state: "{{ state_attr('sensor.cemig_tarifa_kwh', 'tarifa_kwh') | float(0) | round(5) }}"
+        state_class: measurement
