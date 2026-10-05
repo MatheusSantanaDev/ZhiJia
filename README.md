@@ -180,6 +180,7 @@ docker-compose up -d --force-recreate ha-frontend
 | **Web Server** | HTTP Basic Auth, arquivos do SPIFFS |
 | **MQTT** | Pub/Sub: `home/led/color`, `home/servo/angle`, `home/strip/*` |
 | **Consumo Energia** | Simulação por circuito no ESP32 (W/kWh) + tarifa CEMIG via ANEEL |
+| **Consumo Água** | Extrato de consumo do Dmae (Uberlândia/MG) via portal público da Prefeitura |
 | **Duck DNS** | DDNS automático |
 | **Previsão Tempo** | BrasilAPI (CEP) + Open-Meteo (6 dias) |
 | **Spotify** | OAuth + Web Playback SDK |
@@ -260,6 +261,66 @@ API pública da ANEEL (sem login):
 | Potência da rede | `sensor.potencia_total_da_casa` |
 | Preço da energia | `sensor.cemig_tarifa_kwh` (custo calculado pelo HA) |
 | Dispositivos | `sensor.zhijia_esp32_fogao_*`, `_tomadas_*`, `_luz_*` e `sensor.lavanderia_lavadora_energia` |
+
+---
+
+## Consumo de Água (Dmae)
+
+Uberlândia/MG é atendida pelo **Dmae** (Departamento Municipal de Água e Esgoto),
+que não expõe API pública. Os dados ficam no portal do **DCDR/PRODAUB** (sistema
+de consultas da Prefeitura), no relatório **Extrato de Consumo Imóveis**, que roda
+**sem login** — só precisa do **código I.D.A.** de 10 dígitos que vem no topo de
+toda fatura (`000280463-8`: o hífen é só formatação).
+
+No condomínio existe **um único hidrômetro** (o Dmae fatura o prédio inteiro), entao
+o que dá pra medir é o **consumo do prédio** — não existe consumo individual por
+apartamento nessa fonte. Para a unidade seria preciso um hidrômetro secundário com
+saída de pulso (Shelly/ESP32 → MQTT).
+
+Fluxo da feature:
+
+```
+DCDR/PRODAUB (portal público)  --script Python-->  Home Assistant
+  1. GET no formulário JSF (sessionid + ViewState)
+  2. POST no botão "Gerar Relatório" → devolve a URL do relatório BIRT
+  3. GET nessa URL como output?__format=html → extrato tabelado
+```
+
+> **Akamai**: o portal só responde a HTTP/2 com header-set de browser — `requests`
+> e `urllib` levam 403. Por isso o script chama `curl --http2` (já existe no
+> container, com `nghttp2`).
+
+**1. Script** — `homeassistant/config/scripts/dmae_consumo.py`:
+
+- lê o I.D.A. de `dmae_secrets.json` (gitignorado — copie o `dmae_secrets.example.json`)
+- cacheia em `dmae_consumo_cache.json` (6 h) e mantém o **acumulado por competência**,
+  para o total não cair quando o extrato parar de devolver um mês antigo
+- `--dump` grava o HTML bruto em `dmae_ultimo_extrato.html` (conferir o parser)
+- `--ida 0002804638` consulta sem tocar no segredo
+
+**2. Home Assistant** — `homeassistant/config/packages/agua.yaml`:
+
+| Entidade | O que é |
+|----------|---------|
+| `sensor.consumo_de_agua_dmae` | Consumo **medido** do último mês (m³) + atributos |
+| `sensor.consumo_acumulado_do_predio` | Soma histórica (m³) — fonte do painel de água |
+| `sensor.consumo_de_agua_faturado_do_predio` | O que o Dmae faturou no período (m³) |
+
+Atributos de `sensor.consumo_de_agua_dmae`: `competencia`, `data_leitura`,
+`hora_leitura`, `dias`, `ocorrencia`, `consumo_faturado_m3`, `consumo_medio_m3`,
+`capacidade`, `imovel`, `hidrometro`, `economias`, `historico` (~31 meses),
+`acumulado_m3`, `ida`, `fonte`, `consultado_em`, `stale`.
+
+**3. Medido × faturado** — o Dmae cobra no mínimo **10 m³ por economia**: com 198
+residências o faturado fica em **1980 m³**, mesmo quando o prédio mede ~700–1000 m³.
+Por isso existem os dois sensores: o *medido* mostra o consumo real, o *faturado*
+explica a conta.
+
+**4. Energy Dashboard** — em *Configurações → Dashboards → Energia → Água*, adicione
+`sensor.consumo_acumulado_do_predio` como fonte (o painel exige `total_increasing`).
+
+> O relatório traz só m³, sem valores em R$. Para o custo dá pra usar o relatório
+> público "Cadastros Faturas Imóveis" ou a tabela de tarifas do Dmae.
 
 ---
 

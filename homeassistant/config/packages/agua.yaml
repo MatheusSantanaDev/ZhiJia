@@ -1,0 +1,70 @@
+# Feature: consumo de agua ==========================================
+# O Dmae (Uberlandia/MG) nao expoe API publica. O portal do DCDR/PRODAUB
+# publica o relatorio "Extrato de Consumo Imoveis" que roda so com o codigo
+# I.D.A. de 10 digitos da fatura (sem login), entao e ali que pegamos o
+# consumo do predio - o condominio tem um unico hidrometro (E23BR...).
+#
+# 1. /config/scripts/dmae_consumo.py faz o GET do formulario + POST do botao
+#    "Gerar Relatorio" e baixa o extrato em HTML (relatorio BIRT). Cuidado:
+#    o Akamai so deixa passar HTTP/2 com header-set de browser, por isso as
+#    chamadas sao via curl --http2 (requests/urllib levam 403).
+# 2. Aqui ficam os sensores: consumo medido do mes (m³), consumo faturado
+#    (o Dmae cobra no minimo 10 m³ por economia) e o acumulado, que e o que
+#    entra no painel de agua do Energy Dashboard.
+# 3. A leitura e mensal (leitor do Dmae), por isso nao ha utility_meter diario.
+
+command_line:
+  - sensor:
+      name: "Consumo de água Dmae"
+      unique_id: zhijia_dmae_consumo_agua
+      command: "python3 /config/scripts/dmae_consumo.py"
+      scan_interval: 21600 # 6h
+      unit_of_measurement: "m³"
+      device_class: water
+      state_class: measurement
+      json_attributes:
+        - competencia
+        - data_leitura
+        - hora_leitura
+        - dias
+        - ocorrencia
+        - consumo_faturado_m3
+        - consumo_medio_m3
+        - capacidade
+        - imovel
+        - hidrometro
+        - economias
+        - historico
+        - acumulado_m3
+        - ida
+        - fonte
+        - consultado_em
+        - stale
+      value_template: "{{ value_json['consumo_m3'] }}"
+
+template:
+  - sensor:
+      # Soma das competencias ja vistas (guardada no cache). Como o extrato
+      # traz ~2 anos e some mes antigo de vez em quando, o acumulado e
+      # mantido pelo script - state_class total_increasing e o que o
+      # Energy Dashboard aceita como fonte de agua.
+      - name: "Consumo acumulado do prédio"
+        unique_id: zhijia_dmae_consumo_acumulado
+        unit_of_measurement: "m³"
+        device_class: water
+        state_class: total_increasing
+        availability: "{{ has_value('sensor.consumo_de_agua_dmae') }}"
+        state: >-
+          {{ state_attr('sensor.consumo_de_agua_dmae', 'acumulado_m3') | float(0) | round(3) }}
+
+      # Quanto o Dmae faturou neste periodo. Difere do medido porque a
+      # tarifa tem consumo minimo de 10 m³ por economia (198 residências
+      # = 1980 m³) - e o que explica o valor da conta.
+      - name: "Consumo de água faturado do prédio"
+        unique_id: zhijia_dmae_consumo_faturado
+        unit_of_measurement: "m³"
+        device_class: water
+        state_class: measurement
+        availability: "{{ has_value('sensor.consumo_de_agua_dmae') }}"
+        state: >-
+          {{ state_attr('sensor.consumo_de_agua_dmae', 'consumo_faturado_m3') | float(0) | round(3) }}

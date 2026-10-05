@@ -57,6 +57,11 @@ mosquitto/log/
 
 # Cache da consulta de tarifa CEMIG/ANEEL (gerado pelo script)
 /homeassistant/config/scripts/cemig_tarifa_cache.json
+
+# Dmae (consumo de agua): I.D.A. do usuario + cache e HTML bruto da consulta
+/homeassistant/config/scripts/dmae_secrets.json
+/homeassistant/config/scripts/dmae_consumo_cache.json
+/homeassistant/config/scripts/dmae_ultimo_extrato.html
 __pycache__/
 
 # Arquivos relacionados ao PlatformIO
