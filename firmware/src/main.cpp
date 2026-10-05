@@ -776,6 +776,20 @@ void initSystems() {
     }
 }
 
+// Serviços que precisam de rede. Rodam assim que o WiFi estiver up, seja no
+// boot ou depois de uma reconexão no loop() - sem isso, se o WiFi falhar no
+// boot o MQTT nunca seria iniciado e o ESP32 ficaria mudo até reiniciar.
+bool redePronta = false;
+
+void iniciarServicosDeRede() {
+    if (redePronta) return;
+    updateDuckDNS();
+    setupMQTT();
+    // Hora local (UTC-3, sem horário de verão no Brasil desde 2019)
+    configTime(-3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+    redePronta = true;
+}
+
 void setup() {
     Serial.begin(115200);
     delay(1000);
@@ -786,18 +800,18 @@ void setup() {
     bool wifiOk = connectWiFi();
 
     if (wifiOk) {
-        updateDuckDNS();
-        setupMQTT();
-        // Hora local (UTC-3, sem horário de verão no Brasil desde 2019)
-        configTime(-3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+        iniciarServicosDeRede();
     } else {
-        Serial.println("[Boot] Pulando DuckDNS/MQTT sem WiFi. Web server inicia mesmo assim.");
+        Serial.println("[Boot] Sem WiFi no boot. Web server inicia; DuckDNS/MQTT esperam a rede subir no loop().");
     }
     randomSeed(esp_random());
     setupWebServer();
 }
 
 void loop() {
+    // Rede subiu (boot sem WiFi ou reconexão)? Então sim, inicia DuckDNS/MQTT.
+    if (WiFi.status() == WL_CONNECTED) iniciarServicosDeRede();
+
     server.handleClient();
     checkEndstops();
     publicarEnergia(); // simula e publica o consumo a cada 10 s
