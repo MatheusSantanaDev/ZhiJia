@@ -180,7 +180,7 @@ docker-compose up -d --force-recreate ha-frontend
 | **Web Server** | HTTP Basic Auth, arquivos do SPIFFS |
 | **MQTT** | Pub/Sub: `home/led/color`, `home/servo/angle`, `home/strip/*` |
 | **Consumo Energia** | Simulação por circuito no ESP32 (W/kWh) + tarifa CEMIG via ANEEL |
-| **Consumo Água** | Extrato de consumo do Dmae (Uberlândia/MG) via portal público da Prefeitura |
+| **Consumo Água** | Extrato do Dmae (Uberlândia/MG) via portal público + custo estimado em R$ |
 | **Duck DNS** | DDNS automático |
 | **Previsão Tempo** | BrasilAPI (CEP) + Open-Meteo (6 dias) |
 | **Spotify** | OAuth + Web Playback SDK |
@@ -305,22 +305,45 @@ DCDR/PRODAUB (portal público)  --script Python-->  Home Assistant
 | `sensor.consumo_de_agua_dmae` | Consumo **medido** do último mês (m³) + atributos |
 | `sensor.consumo_acumulado_do_predio` | Soma histórica (m³) — fonte do painel de água |
 | `sensor.consumo_de_agua_faturado_do_predio` | O que o Dmae faturou no período (m³) |
+| `sensor.custo_da_agua_do_predio` | Custo estimado da conta (R$) + água/esgoto/tarifa |
+| `sensor.tarifa_da_agua_dmae` | Preço médio pago por m³ faturado (R$/m³) |
 
 Atributos de `sensor.consumo_de_agua_dmae`: `competencia`, `data_leitura`,
 `hora_leitura`, `dias`, `ocorrencia`, `consumo_faturado_m3`, `consumo_medio_m3`,
-`capacidade`, `imovel`, `hidrometro`, `economias`, `historico` (~31 meses),
-`acumulado_m3`, `ida`, `fonte`, `consultado_em`, `stale`.
+`custo_agua_brl`, `custo_esgoto_brl`, `custo_total_brl`, `tarifa_media_brl_m3`,
+`tarifa` (vigência/% esgoto/calibração), `capacidade`, `imovel`, `hidrometro`,
+`economias`, `historico` (~31 meses), `acumulado_m3`, `ida`, `fonte`,
+`consultado_em`, `stale`.
 
 **3. Medido × faturado** — o Dmae cobra no mínimo **10 m³ por economia**: com 198
 residências o faturado fica em **1980 m³**, mesmo quando o prédio mede ~700–1000 m³.
 Por isso existem os dois sensores: o *medido* mostra o consumo real, o *faturado*
 explica a conta.
 
-**4. Energy Dashboard** — em *Configurações → Dashboards → Energia → Água*, adicione
-`sensor.consumo_acumulado_do_predio` como fonte (o painel exige `total_increasing`).
+**4. Custo estimado da conta (R$)** — o portal público só devolve m³ (sem reais), e
+os decretos tarifários são PDFs escaneados, então o `dmae_consumo.py` calcula a
+estimativa com a **tabela vigente desde 21/12/2025** (Resolução Aresan 001/2025),
+**calibrada na fatura real do imóvel** (venc. 04/2026):
 
-> O relatório traz só m³, sem valores em R$. Para o custo dá pra usar o relatório
-> público "Cadastros Faturas Imóveis" ou a tabela de tarifas do Dmae.
+```
+1ª economia  = tarifa individual      1 × R$ 30,89
+2ª em diante = medição compartilhada  197 × R$ 20,60   (10 m³/economia)
+                            água = R$ 4.089,09   ← bateu com a fatura
+esgoto = 80% do valor da água = R$ 3.271,27      ← 3.271,27 / 4.089,09
+        total base = R$ 7.360,36                 ← igual ao da fatura
+```
+
+O rateio é por economia (`faturado / 198`) e as faixas de excedente (11–20:
+R$ 2,37 … acima de 50: R$ 8,06) entram quando o consumo passa do mínimo. Se o Dmae
+atualizar a tabela, os valores estão em `TABELAS`/`FAIXAS_*` no topo do script.
+
+> **Não entram no cálculo:** a Taxa de Coleta de Lixo (em condomínio vertical sem
+> hidrômetro individual o Dmae cobra em **carnê próprio**) e multa/juros de atraso.
+> Por ser uma estimativa, vale comparar com a fatura de vez em quando — se bater
+> diferente, ajuste `PERCENTUAL_ESGOTO`/`TABELAS`.
+
+**5. Energy Dashboard** — em *Configurações → Dashboards → Energia → Água*, adicione
+`sensor.consumo_acumulado_do_predio` como fonte (o painel exige `total_increasing`).
 
 ---
 

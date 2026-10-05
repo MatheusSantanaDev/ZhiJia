@@ -9,8 +9,9 @@
 #    o Akamai so deixa passar HTTP/2 com header-set de browser, por isso as
 #    chamadas sao via curl --http2 (requests/urllib levam 403).
 # 2. Aqui ficam os sensores: consumo medido do mes (m³), consumo faturado
-#    (o Dmae cobra no minimo 10 m³ por economia) e o acumulado, que e o que
-#    entra no painel de agua do Energy Dashboard.
+#    (o Dmae cobra no minimo 10 m³ por economia), o custo estimado da conta
+#    (tarifa vigente + esgoto de 80%, calibrado numa fatura real) e o
+#    acumulado, que e o que entra no painel de agua do Energy Dashboard.
 # 3. A leitura e mensal (leitor do Dmae), por isso nao ha utility_meter diario.
 
 command_line:
@@ -21,7 +22,9 @@ command_line:
       scan_interval: 21600 # 6h
       unit_of_measurement: "m³"
       device_class: water
-      state_class: measurement
+      # sem state_class: o valor e o consumo do mes corrente (sobe/desce), nao
+      # um acumulado - o HA so aceita total/total_increasing em device_class
+      # water, e quem acumula aqui e o template "Consumo acumulado do predio".
       json_attributes:
         - competencia
         - data_leitura
@@ -29,6 +32,11 @@ command_line:
         - dias
         - ocorrencia
         - consumo_faturado_m3
+        - custo_agua_brl
+        - custo_esgoto_brl
+        - custo_total_brl
+        - tarifa_media_brl_m3
+        - tarifa
         - consumo_medio_m3
         - capacidade
         - imovel
@@ -64,7 +72,40 @@ template:
         unique_id: zhijia_dmae_consumo_faturado
         unit_of_measurement: "m³"
         device_class: water
-        state_class: measurement
         availability: "{{ has_value('sensor.consumo_de_agua_dmae') }}"
         state: >-
           {{ state_attr('sensor.consumo_de_agua_dmae', 'consumo_faturado_m3') | float(0) | round(3) }}
+
+      # Estimativa da fatura: agua (tabela Dmae, 1a economia individual e as
+      # demais de mediacao compartilhada) + esgoto (80%). Calibrado na fatura
+      # do imovel com vencimento 04/2026, que deu na mosca:
+      #   1x30,89 + 197x20,60 = 4.089,09 de agua / esgoto 3.271,27.
+      # Nao entra: taxa de lixo (carnê proprio em condominio vertical),
+      # multa e juros.
+      - name: "Custo da água do prédio"
+        unique_id: zhijia_dmae_custo_agua
+        unit_of_measurement: "R$"
+        state_class: total
+        availability: >-
+          {{ has_value('sensor.consumo_de_agua_dmae')
+             and state_attr('sensor.consumo_de_agua_dmae', 'custo_total_brl') is not none }}
+        state: >-
+          {{ state_attr('sensor.consumo_de_agua_dmae', 'custo_total_brl') | float(0) | round(2) }}
+        attributes:
+          custo_agua_brl: "{{ state_attr('sensor.consumo_de_agua_dmae', 'custo_agua_brl') }}"
+          custo_esgoto_brl: "{{ state_attr('sensor.consumo_de_agua_dmae', 'custo_esgoto_brl') }}"
+          tarifa_media_brl_m3: "{{ state_attr('sensor.consumo_de_agua_dmae', 'tarifa_media_brl_m3') }}"
+          competencia: "{{ state_attr('sensor.consumo_de_agua_dmae', 'competencia') }}"
+          tarifa: "{{ state_attr('sensor.consumo_de_agua_dmae', 'tarifa') }}"
+
+      # Preço medio pago por m³ faturado (água) - serve pra comparar meses:
+      # quando o consumo passa do minimo a tarifa média sobe pelas faixas.
+      - name: "Tarifa da água Dmae"
+        unique_id: zhijia_dmae_tarifa_agua
+        unit_of_measurement: "R$/m³"
+        state_class: measurement
+        availability: >-
+          {{ has_value('sensor.consumo_de_agua_dmae')
+             and state_attr('sensor.consumo_de_agua_dmae', 'tarifa_media_brl_m3') is not none }}
+        state: >-
+          {{ state_attr('sensor.consumo_de_agua_dmae', 'tarifa_media_brl_m3') | float(0) | round(4) }}

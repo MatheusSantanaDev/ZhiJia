@@ -257,6 +257,114 @@ def _cabecalho(tabela):
     return info
 
 
+# ------------------------------------------------------------- tarifa
+#
+# Tabela do Dmae em vigor desde 21/12/2025 (Resolucao Aresan 001/2025 sobre o
+# Decreto 22.336/2025). Os decretos sao PDFs escaneados, entao os valores vem
+# da tabela oficial "Tarifas-Dmae-2025.pdf" (portal da Prefeitura) cruzada
+# com a tabela divulgada pelo G1 em 24/11/2025 - as duas batem.
+#
+# Regra de faturamento, calibrada na propria fatura do imovel (venc. 04/2026):
+#   * a 1a economia paga a tarifa INDIVIDUAL, as demais a de MEDIACAO
+#     COMPARTILHADA ("a partir da segunda economia" - titulo do decreto);
+#   * cada economia e faturada sobre o consumo rateado (faturado / economias);
+#     com 198 economias e 1980 m3 faturados da 10 m3/economia = minima:
+#       1 x R$30,89 + 197 x R$20,60 = R$4.089,09  (bate com a fatura);
+#   * ESGOTO = 80% do valor da agua (3.271,27 / 4.089,09 = 0,80 exato).
+#
+# A Taxa de Coleta de Lixo NAO entra nesta conta: em condominio vertical sem
+# hidrometro individual o Dmae cobra em carne proprio (aviso da autarquia em
+# 27/01/2026). Multa e juros tambem ficam de fora (sao decorrencia de atraso).
+
+FAIXAS_RESIDENCIAL = ((11, 20, 2.37), (21, 30, 2.71), (31, 40, 3.73),
+                      (41, 50, 6.44), (51, None, 8.06))
+FAIXAS_COMERCIAL = ((11, 20, 2.75), (21, 30, 3.23), (31, 40, 4.60),
+                    (41, 50, 7.74), (51, None, 9.59))
+FAIXAS_INDUSTRIAL = ((31, 3000, 6.74), (3001, 10000, 7.07),
+                     (10001, 35000, 7.55), (35001, 50000, 7.74),
+                     (50001, None, 9.59))
+
+# categoria -> (minima individual, minima compartilhada, m3 cobertos pela
+#               minima, faixas de excedente (de, ate, preco por m3))
+TABELAS = {
+    "residencia": (30.89, 20.60, 10, FAIXAS_RESIDENCIAL),
+    "comercio": (38.60, 25.73, 10, FAIXAS_COMERCIAL),
+    "industria": (99.37, 99.37, 30, FAIXAS_INDUSTRIAL),
+}
+PERCENTUAL_ESGOTO = 0.80
+VIGENCIA_TARIFA = "2025-12-21"
+CALIBRADO_EM = "2026-10-05"
+FONTE_TARIFA = ("Tabela Dmae (Resolucao Aresan 001/2025) "
+                "+ fatura do imovel com vencimento 04/2026")
+
+
+def _custo_economia(consumo, minima, limite_minima, faixas):
+    """Custo de uma economia: a minima cobre ate `limite_minima` m3 e o resto
+    entra nas faixas de excedente (cada faixa com seu preco por m3).
+
+    Faixa (11, 20, 2.37) = 10 m3 (11..20) pagos a R$2,37; faixa (51, None, ...)
+    nao tem teto. O excedente comeca em `limite_minima + 1` m3.
+    """
+    if consumo is None or consumo <= limite_minima:
+        return minima
+    valor = minima
+    excedente = consumo - limite_minima
+    for de, ate, preco in faixas:
+        teto = None if ate is None else ate - de + 1
+        if teto is None or excedente <= teto:
+            return round(valor + excedente * preco, 2)
+        valor += teto * preco
+        excedente -= teto
+    return round(valor, 2)
+
+
+def calcular_custo(faturado_m3, economias):
+    """Estimativa da fatura do mes: agua (tabela) + esgoto (80%)."""
+    dados = {
+        "custo_agua_brl": None,
+        "custo_esgoto_brl": None,
+        "custo_total_brl": None,
+        "tarifa_media_brl_m3": None,
+        "tarifa": {
+            "vigencia": VIGENCIA_TARIFA,
+            "percentual_esgoto": PERCENTUAL_ESGOTO,
+            "calibrado_em": CALIBRADO_EM,
+            "fonte": FONTE_TARIFA,
+        },
+    }
+    if not faturado_m3 or not economias:
+        return dados
+
+    total_economias = 0
+    for quantidade in economias.values():
+        total_economias += int(quantidade or 0)
+    if total_economias <= 0:
+        return dados
+
+    por_economia = faturado_m3 / total_economias
+    agua = 0.0
+    for categoria, bruto in sorted(economias.items()):
+        quantidade = int(bruto or 0)
+        tabela = TABELAS.get(categoria)
+        if quantidade <= 0 or not tabela:
+            continue
+        minima_ind, minima_comp, limite, faixas = tabela
+        # 1a economia da categoria na tarifa individual, o resto compartilhada
+        agua += _custo_economia(por_economia, minima_ind, limite, faixas)
+        agua += (quantidade - 1) * _custo_economia(
+            por_economia, minima_comp, limite, faixas)
+    if agua <= 0:
+        return dados
+
+    agua = round(agua, 2)
+    esgoto = round(agua * PERCENTUAL_ESGOTO, 2)
+    dados["custo_agua_brl"] = agua
+    dados["custo_esgoto_brl"] = esgoto
+    dados["custo_total_brl"] = round(agua + esgoto, 2)
+    dados["tarifa_media_brl_m3"] = round(agua / faturado_m3, 4)
+    return dados
+
+
 def _linhas_extrato(tabelas):
     """Acha a tabela do extrato e devolve (cabecalho, linhas)."""
     for tabela in tabelas:
@@ -329,6 +437,7 @@ def parsear(pagina, ida):
             info = achado
             break
 
+    custo = calcular_custo(ultimo["consumo_faturado_m3"], info.get("economias") or {})
     return {
         "consumo_m3": ultimo["consumo_m3"],
         "competencia": ultimo["competencia"],
@@ -337,6 +446,11 @@ def parsear(pagina, ida):
         "dias": ultimo["dias"],
         "ocorrencia": ultimo["ocorrencia"],
         "consumo_faturado_m3": ultimo["consumo_faturado_m3"],
+        "custo_agua_brl": custo["custo_agua_brl"],
+        "custo_esgoto_brl": custo["custo_esgoto_brl"],
+        "custo_total_brl": custo["custo_total_brl"],
+        "tarifa_media_brl_m3": custo["tarifa_media_brl_m3"],
+        "tarifa": custo["tarifa"],
         "consumo_medio_m3": numero(info.get("consumomedio")),
         "capacidade": numero(info.get("capacidade")),
         "imovel": info.get("imovel", ""),
