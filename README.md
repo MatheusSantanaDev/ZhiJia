@@ -366,6 +366,22 @@ gráfico de Água já nasce com o histórico. O script é idempotente (recusa im
 duas vezes), tem `--dry-run` e também renova o `sum` das linhas de hoje, para a
 cadeia de soma do recorder (`short term` → horária → longo prazo) continuar coerente.
 
+> ⚠️ **Nunca abra o `home-assistant_v2.db` pelo host com o HA rodando** — nem com
+> `sqlite3`, nem com um script Python ad-hoc. Pelo VirtioFS o processo do host não
+> enxerga os locks do container, acredita ser o último usuário do banco e, ao fechar,
+> faz checkpoint e **apaga os `-wal`/`-shm`** de baixo do HA. Ele fica com descritores
+> órfãos, dois índices WAL concorrentes passam a coexistir e toda conexão nova falha
+> com `disk I/O error` / `database disk image is malformed` — que é o que estoura
+> `unknown_error` na página de Energia. (aconteceu de verdade em 06/10/2026; o
+> conserto foi parar o HA, limpar os resíduos e subir de novo). O
+> `dmae_backfill_stats.py` tem trava contra isso (`--forcar` ignora). Para inspecionar
+> com o HA no ar, vá pelo container:
+>
+> ```
+> docker exec -i zhijia-homeassistant python3 -c \
+>   "import sqlite3; print(sqlite3.connect('file:/config/home-assistant_v2.db?mode=ro', uri=True).execute('PRAGMA integrity_check').fetchone())"
+> ```
+
 **7. Mês a mês** — o `command_line` executa o script **a cada 6 h**, para sempre. O
 Dmae lê o hidrômetro **uma vez por mês**, por volta do dia 15 (o extrato mostra
 16/09, 15/08, 15/07, 16/06, 16/05…) e só publica a linha nova quando a leitura sai —

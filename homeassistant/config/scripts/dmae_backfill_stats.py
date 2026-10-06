@@ -10,6 +10,21 @@ comeca do zero.
     2. python3 homeassistant/config/scripts/dmae_backfill_stats.py
     3. docker start zhijia-homeassistant
 
+O passo 1 nao e opcional: NUNCA abra o banco pelo host com o HA rodando (nem
+este script, nem sqlite3, nem um script Python ad-hoc). Pelo VirtioFS o
+processo do host nao enxerga os locks do container, acredita ser o ultimo
+usuario do banco e, ao fechar, faz checkpoint e APAGA os arquivos -wal e -shm
+de baixo do HA. O HA fica com descritores orfaos, dois indices WAL passam a
+coexistir e toda conexao nova falha com "disk I/O error" ou "database disk
+image is malformed" - que e exatamente o que quebra a pagina de Energia com
+"unknown_error". O script recusa a rodar se detectar uma conexao aberta (o
+-existe so enquanto houver conexao); --forcar ignora a trava por conta e risco.
+
+Para INSPECIONAR o banco com o HA no ar, va pelo container:
+
+    docker exec -i zhijia-homeassistant python3 -c \
+      "import sqlite3;print(sqlite3.connect('file:/config/home-assistant_v2.db?mode=ro',uri=True).execute('PRAGMA integrity_check').fetchone())"
+
 Convencao: zero point = 0 no comeco da serie, ou seja sum == state em todas as
 linhas. As linhas de hoje (longo prazo E as de 5 min) tambem sao atualizadas
 porque o recorder encadeia o sum a partir delas:
@@ -72,6 +87,21 @@ def main():
 
     historico = json.loads(CACHE.read_text(encoding="utf-8"))["historico"]
     historico.sort(key=quando)
+
+    # Trava de seguranca: o -shm so existe enquanto ha alguma conexao aberta
+    # no banco. Abrir aqui com o HA rodando e o que quebra o recorder (ver
+    # o docstring).
+    if (BASE / "home-assistant_v2.db-shm").exists() and "--forcar" not in sys.argv:
+        print(
+            "ERRO: existe home-assistant_v2.db-shm ao lado do banco, ou seja\n"
+            "      alguem (o HA) esta com ele aberto. Pare o Home Assistant:\n"
+            "          docker stop zhijia-homeassistant\n"
+            "      Se o HA ja parou e o -shm ficou para tras, apague o -shm e o -wal\n"
+            "      (o banco em si nao toca) ou use --forcar por conta e risco.\n"
+            "      Para SO inspecionar com o HA no ar, use docker exec (ver docstring).",
+            file=sys.stderr,
+        )
+        return 1
 
     con = sqlite3.connect(DB)
     try:
