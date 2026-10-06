@@ -22,9 +22,11 @@ command_line:
       scan_interval: 21600 # 6h
       unit_of_measurement: "m³"
       device_class: water
-      # sem state_class: o valor e o consumo do mes corrente (sobe/desce), nao
-      # um acumulado - o HA so aceita total/total_increasing em device_class
-      # water, e quem acumula aqui e o template "Consumo acumulado do predio".
+      # total (e nao measurement): o valor e o consumo do mes corrente, que
+      # "reinicia" a cada leitura - o HA so aceita None/total/total_increasing
+      # em device_class water, e total e justamente a classe p/ valor de
+      # periodo que zera. Quem acumula e o template "Consumo acumulado".
+      state_class: total
       json_attributes:
         - competencia
         - data_leitura
@@ -72,6 +74,9 @@ template:
         unique_id: zhijia_dmae_consumo_faturado
         unit_of_measurement: "m³"
         device_class: water
+        # total: valor do periodo corrente (nao acumulado) - mantem as
+        # estatisticas de longo prazo desta entidade vivas
+        state_class: total
         availability: "{{ has_value('sensor.consumo_de_agua_dmae') }}"
         state: >-
           {{ state_attr('sensor.consumo_de_agua_dmae', 'consumo_faturado_m3') | float(0) | round(3) }}
