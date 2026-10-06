@@ -297,6 +297,8 @@ DCDR/PRODAUB (portal público)  --script Python-->  Home Assistant
   para o total não cair quando o extrato parar de devolver um mês antigo
 - `--dump` grava o HTML bruto em `dmae_ultimo_extrato.html` (conferir o parser)
 - `--ida 0002804638` consulta sem tocar no segredo
+- `dmae_backfill_stats.py` (irmão do script) importa o histórico do extrato para as
+  estatísticas de longo prazo do HA — ver o passo 6
 
 **2. Home Assistant** — `homeassistant/config/packages/agua.yaml`:
 
@@ -342,8 +344,40 @@ atualizar a tabela, os valores estão em `TABELAS`/`FAIXAS_*` no topo do script.
 > Por ser uma estimativa, vale comparar com a fatura de vez em quando — se bater
 > diferente, ajuste `PERCENTUAL_ESGOTO`/`TABELAS`.
 
-**5. Energy Dashboard** — em *Configurações → Dashboards → Energia → Água*, adicione
-`sensor.consumo_acumulado_do_predio` como fonte (o painel exige `total_increasing`).
+**5. Energy Dashboard** — a fonte já está cadastrada no `.storage/energy` (fonte
+`water` → `sensor.consumo_acumulado_do_predio`, nome "Água do prédio (Dmae)"), então
+em *Configurações → Dashboards → Energia* ela aparece direto na seção **Água**.
+Ficou **sem preço de propósito**: o painel calcularia `consumo × preço_fixo`, mas a
+conta tem piso (1980 m³ faturados contra ~700–1000 m³ medidos) e nunca fecharia —
+o R$ certo continua em `sensor.custo_da_agua_do_predio`.
+
+**6. Histórico** — o extrato traz ~31 meses, mas o HA só grava o que observa ao vivo,
+então as estatísticas de longo prazo precisam ser importadas uma vez (o `.db` não é
+versionado; refaça isso se recriar o banco):
+
+```
+docker stop zhijia-homeassistant
+python3 homeassistant/config/scripts/dmae_backfill_stats.py   # faz backup antes
+docker start zhijia-homeassistant
+```
+
+Carrega **17/03/2024 → 16/09/2026 (14.314 m³)** nas três entidades de volume e o
+gráfico de Água já nasce com o histórico. O script é idempotente (recusa importar
+duas vezes), tem `--dry-run` e também renova o `sum` das linhas de hoje, para a
+cadeia de soma do recorder (`short term` → horária → longo prazo) continuar coerente.
+
+**7. Mês a mês** — o `command_line` executa o script **a cada 6 h**, para sempre. O
+Dmae lê o hidrômetro **uma vez por mês**, por volta do dia 15 (o extrato mostra
+16/09, 15/08, 15/07, 16/06, 16/05…) e só publica a linha nova quando a leitura sai —
+até lá os lançamentos devolvem os mesmos números. Quando a leitura nova aparece, na
+próxima execução de 6 h:
+
+- `sensor.consumo_de_agua_dmae` assume o novo m³ medido
+- `sensor.custo_da_agua_do_predio` recalcula a estimativa da nova fatura
+- o acumulado sobe e o painel de Água registra o consumo daquele período
+
+Se o portal cair, o script cai no cache (6 h) e marca `stale: true` — `consultado_em`
+parar de avançar é o sinal. Sem cache nenhum, o sensor mantém o último estado.
 
 ---
 
