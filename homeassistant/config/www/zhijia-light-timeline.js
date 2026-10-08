@@ -109,6 +109,10 @@ const ZHIJIA_TL = {
       });
     }
     const segs = [];
+    // Ultima cor com que a luz foi vista ligada. Ela atravessa os
+    // trechos desligados e indisponiveis: e a cor "salva" que o
+    // dispositivo deve reacender quando voltar.
+    let lastColor = null;
     for (let i = 0; i < points.length; i += 1) {
       const t0 = Math.max(points[i].t, start);
       const t1 = i + 1 < points.length ? points[i + 1].t : now;
@@ -120,6 +124,14 @@ const ZHIJIA_TL = {
         attrs: points[i].attrs,
       };
       seg.color = this.colorOf(seg);
+      if (seg.color) {
+        lastColor = seg.color;
+      } else if (
+        (seg.state === "unavailable" || seg.state === "unknown") &&
+        lastColor
+      ) {
+        seg.color = lastColor;
+      }
       segs.push(seg);
     }
     return segs;
@@ -335,12 +347,21 @@ class ZhijiaLightTimeline extends HTMLElement {
             hours
           )} · ${ZHIJIA_TL.formatDur(seg.t1 - seg.t0)} · cor ${rawRgb} · brilho ${br}`;
         } else if (seg.state === "unavailable" || seg.state === "unknown") {
-          bg =
-            "repeating-linear-gradient(45deg, rgba(160,160,160,.35), rgba(160,160,160,.35) 6px, rgba(160,160,160,.12) 6px, rgba(160,160,160,.12) 12px)";
+          // Indisponivel: mantem a ultima cor conhecida como um
+          // leve fundo sobre o tracejado, para a cor "salva"
+          // continuar visivel enquanto o dispositivo volta.
+          const c = seg.color;
+          const wash = c
+            ? `linear-gradient(rgba(${c[0]},${c[1]},${c[2]},.18), rgba(${c[0]},${c[1]},${c[2]},.18)), `
+            : "";
+          bg = `${wash}repeating-linear-gradient(45deg, rgba(160,160,160,.35), rgba(160,160,160,.35) 6px, rgba(160,160,160,.12) 6px, rgba(160,160,160,.12) 12px)`;
+          const lastColorTip = c
+            ? ` · ultima cor rgb(${c.join(",")})`
+            : "";
           tip = `${ZHIJIA_TL.fmtTime(seg.t0, hours)} → ${ZHIJIA_TL.fmtTime(
             seg.t1,
             hours
-          )} · ${seg.state}`;
+          )} · ${seg.state}${lastColorTip}`;
         } else {
           bg = "var(--state-inactive-color, #9e9e9e)";
           tip = `${ZHIJIA_TL.fmtTime(seg.t0, hours)} → ${ZHIJIA_TL.fmtTime(

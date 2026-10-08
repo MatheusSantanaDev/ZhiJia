@@ -300,6 +300,66 @@ void publishLedState() {
     esp_mqtt_client_publish(mqttClient, ledStateTopic, state, 0, 0, 1);
 }
 
+// Estado da luz persistido no SPIFFS: a cor escolhida sobrevive a
+// reboots e quedas de energia. Assim, quando o ESP32 volta (ou a
+// luz é ligada), ela reacende na mesma cor de antes, e não no
+// branco padrao.
+const char* ledStatePath = "/led_state.json";
+bool ledStateDirty = false;
+unsigned long ultimoSaveLed = 0;
+
+void saveLedStateNow() {
+    File f = SPIFFS.open(ledStatePath, FILE_WRITE);
+    if (!f) {
+        Serial.println("[LED] Falha ao abrir led_state.json para escrever");
+        return;
+    }
+    char buf[128];
+    snprintf(buf, sizeof(buf),
+             "{\"on\":%s,\"r\":%d,\"g\":%d,\"b\":%d,\"brightness\":%d}",
+             ledOn ? "true" : "false", ledR, ledG, ledB, ledBrightness);
+    f.print(buf);
+    f.close();
+}
+
+// Marca que o estado mudou. A gravacao acontece em persistLedState()
+// com debounce: arrastar o controle de cor manda muitos comandos por
+// segundo e o flash do ESP32 tem ciclos de escrita limitados.
+void markLedStateChanged() {
+    ledStateDirty = true;
+}
+
+void persistLedState() {
+    if (!ledStateDirty) return;
+    if (millis() - ultimoSaveLed < 2000) return;
+    ledStateDirty = false;
+    ultimoSaveLed = millis();
+    saveLedStateNow();
+}
+
+void loadLedState() {
+    File f = SPIFFS.open(ledStatePath, FILE_READ);
+    if (!f) return;
+
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, f);
+    f.close();
+    if (err) {
+        Serial.printf("[LED] led_state.json invalido (%s) - usando padrao\n",
+                      err.c_str());
+        return;
+    }
+
+    ledOn = doc["on"] | false;
+    ledR = constrain((int)(doc["r"] | 255), 0, 255);
+    ledG = constrain((int)(doc["g"] | 255), 0, 255);
+    ledB = constrain((int)(doc["b"] | 255), 0, 255);
+    ledBrightness = constrain((int)(doc["brightness"] | 255), 1, 255);
+    applyLed();
+    Serial.printf("[LED] Estado restaurado: %s cor=(%d,%d,%d) brilho=%d\n",
+                  ledOn ? "ON" : "OFF", ledR, ledG, ledB, ledBrightness);
+}
+
 // Controle Servo ======================================================
 void setupServo() {
     myServo.attach(servoPin, 500, 2400);
@@ -581,6 +641,7 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
                     ledOn = true;
                     applyLed();
                     publishLedState();
+                    markLedStateChanged();
                     Serial.printf("[RGB] Nova cor: R=%d, G=%d, B=%d\n", r, g, b);
                 }
             } else if (strcmp(topic, ledSetTopic) == 0) {
@@ -609,6 +670,7 @@ esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
 
                 applyLed();
                 publishLedState();
+                markLedStateChanged();
                 Serial.printf("[HA] state=%s cor=(%d,%d,%d) brilho=%d\n",
                               ledOn ? "ON" : "OFF", ledR, ledG, ledB, ledBrightness);
             } else if (strcmp(topic, servoTopic) == 0) {
@@ -768,6 +830,7 @@ void initSystems() {
     }
     loadConfig();
     setupLED();
+    loadLedState(); // restaura a ultima cor (sobrevive a reboots/quedas)
     setupServo();
 
     if (!stripIP.isEmpty() && !stripDeviceId.isEmpty() && !stripLocalKey.isEmpty()) {
@@ -814,6 +877,7 @@ void loop() {
 
     server.handleClient();
     checkEndstops();
+    persistLedState(); // salva a cor quando mudou (debounce de 2 s)
     publicarEnergia(); // simula e publica o consumo a cada 10 s
 
     // Reconexão Wi-Fi: re-escaneia (o AP pode ter mudado de canal/BSSID)
