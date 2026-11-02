@@ -1,0 +1,152 @@
+set_price:
+  name: Definir preço
+  description: Define um preço manual ou confirma um preço de OCR para um item.
+  fields:
+    uid:
+      name: Item
+      description: UID do item da lista.
+      required: true
+      example: "1793566177927.464541833"
+    market:
+      name: Mercado
+      description: ID do mercado configurado em YAML.
+      required: true
+      example: assai
+    price:
+      name: Preço
+      description: Preço unitário em reais.
+      required: true
+      example: 18.29
+    source:
+      name: Origem
+      description: manual ou ocr.
+      required: false
+      example: manual
+    note:
+      name: Observação
+      description: Texto livre para lembrar de onde veio o preço.
+      required: false
+
+clear_price:
+  name: Limpar preço
+  description: Remove o preço de um item em um mercado.
+  fields:
+    uid:
+      name: Item
+      required: true
+    market:
+      name: Mercado
+      required: true
+
+link_item:
+  name: Vincular item ao catálogo
+  description: Vincula um item da lista a um produto do catálogo ou cria um produto novo.
+  fields:
+    uid:
+      name: Item
+      required: true
+    product_id:
+      name: Produto
+      required: false
+    name:
+      name: Nome
+      required: false
+    brand:
+      name: Marca
+      required: false
+    package:
+      name: Embalagem
+      required: false
+      example: 5 kg
+    grams:
+      name: Gramatura em gramas
+      required: false
+      example: 5000
+    unit:
+      name: Unidade
+      required: false
+      example: g
+    aliases:
+      name: Apelidos
+      required: false
+    quantity:
+      name: Quantidade
+      required: false
+      example: 1
+
+add_catalog_product:
+  name: Adicionar produto ao catálogo
+  description: Cria um produto no catálogo de compras.
+  fields:
+    name:
+      name: Nome
+      required: true
+    brand:
+      name: Marca
+      required: false
+    package:
+      name: Embalagem
+      required: false
+    grams:
+      name: Gramatura em gramas
+      required: false
+    unit:
+      name: Unidade
+      required: false
+    aliases:
+      name: Apelidos
+      required: false
+
+add_item:
+  name: Adicionar item à lista
+  description: Adiciona um item ao Google Keep pela aba Orçamento.
+  fields:
+    entity_id:
+      name: Lista
+      required: false
+    summary:
+      name: Nome do item
+      required: false
+    product_id:
+      name: Produto do catálogo
+      required: false
+    quantity:
+      name: Quantidade
+      required: false
+      example: 1
+
+set_quantity:
+  name: Alterar quantidade
+  description: Altera a quantidade de um item do orçamento.
+  fields:
+    uid:
+      name: Item
+      required: true
+    quantity:
+      name: Quantidade
+      required: true
+      example: 2
+
+refresh_prices:
+  name: Atualizar preços
+  description: Atualiza preços da ABC e encartes vencidos do Assaí/Bahamas.
+  fields:
+    market:
+      name: Mercado
+      required: false
+    force:
+      name: Forçar
+      required: false
+      example: false
+
+refresh_flyers:
+  name: Atualizar encartes
+  description: Baixa e executa OCR dos encartes do Assaí e Bahamas.
+  fields:
+    market:
+      name: Mercado
+      required: false
+    force:
+      name: Forçar
+      required: false
+      example: false

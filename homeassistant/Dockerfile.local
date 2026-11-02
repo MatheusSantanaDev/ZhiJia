@@ -78,7 +78,8 @@ RUN uv pip install -r requirements.txt
 
 # Install all Python dependencies including HA core in editable mode
 RUN uv pip install -r requirements_all.txt && \
-    uv pip install -e . --config-settings editable_mode=compat
+    uv pip install -e . --config-settings editable_mode=compat && \
+    uv pip install "lzstring==1.0.4"
 
 # Compile Python bytecode
 RUN python3 -m compileall homeassistant/homeassistant
@@ -116,6 +117,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     tzdata \
+    # OCR dos encartes (Assaí/Bahamas)
+    tesseract-ocr \
+    tesseract-ocr-por \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy go2rtc binary (download pre-built)

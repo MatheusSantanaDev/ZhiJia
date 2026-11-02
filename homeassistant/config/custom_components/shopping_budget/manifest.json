@@ -1,0 +1,10 @@
+{
+  "domain": "shopping_budget",
+  "name": "Shopping Budget",
+  "version": "0.1.0",
+  "documentation": "https://github.com/matheus/ZhiJia",
+  "dependencies": ["todo", "websocket_api"],
+  "codeowners": [],
+  "requirements": ["lzstring==1.0.4"],
+  "iot_class": "cloud_polling"
+}

@@ -1,0 +1,44 @@
+# Orçamento de compras do mercado
+#
+# A lista padrão continua sendo a lista do Google Keep. O catálogo, os apelidos
+# e as gramaturas ficam no Store da integração shopping_budget e podem ser
+# editados pela aba Orçamento.
+shopping_budget:
+  todo_entity: todo.google_keep_lista_de_compras
+
+  markets:
+    assai:
+      name: Assaí
+      type: assai
+      url: https://www.assai.com.br/ofertas/minas-gerais/assai-uberlandia
+      flyer_url: https://www.assai.com.br/sites/default/files/static/ofertas_assai.json
+      store_nid: 3098
+      store_eid: 12
+      store_loja_id: 158
+
+    bahamas:
+      name: Bahamas
+      type: bahamas
+      url: https://bahamasmix.com.br/regiao/uberlandia/
+      flyers_url: https://bahamasmix.com.br/encartes/
+
+    abc:
+      name: ABC
+      type: abc
+      url: https://superabconline.com.br/
+      api_url: https://apiecommerce.regexsolutions.com.br
+      # A loja mais próxima da casa é escolhida automaticamente. 909 é a
+      # Hiper ABC Uberlândia (Av. João Naves de Ávila, 317).
+      store_id: 909
+      auto_store: true
+
+  ocr:
+    enabled: true
+    language: por
+    psm: 6
+    max_pages: 4
+    max_images: 6
+    min_confidence: 35
+
+  price_ttl_hours: 12
+  flyer_ttl_hours: 24
