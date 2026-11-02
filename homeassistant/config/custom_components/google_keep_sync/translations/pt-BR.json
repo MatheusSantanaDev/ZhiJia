@@ -1,0 +1,87 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "A integração já está configurada para este usuário.",
+            "reauth_successful": "Reautenticação concluída"
+        },
+        "error": {
+            "cannot_connect": "Falha ao conectar.",
+            "invalid_auth": "Autenticação inválida.",
+            "unknown": "Ocorreu um erro inesperado.",
+            "already_configured": "A integração já está configurada para este usuário.",
+            "blank_username": "O usuário não pode ficar em branco.",
+            "invalid_email": "Endereço de e-mail inválido.",
+            "missing_token": "O token deve ser informado.",
+            "invalid_token_format": "Token inválido. O token deve começar com 'oauth2_4/' (OAuth) ou 'aas_et/' (master, 223 caracteres)."
+        },
+        "step": {
+            "user": {
+                "title": "Informar credenciais",
+                "description": "Informe o usuário e o token da sua conta Google. Você pode usar um token master ou um token OAuth. Veja o [Readme]({invalid_auth_url}) para instruções de como obter um token.",
+                "data": {
+                    "username": "Usuário",
+                    "token": "Token"
+                }
+            },
+            "options": {
+                "title": "Configurar opções",
+                "description": "Escolha as listas para sincronizar e configure as demais opções.",
+                "data": {
+                    "lists_to_sync": "Listas para sincronizar",
+                    "default_shopping_list": "Lista de compras padrão",
+                    "list_prefix": "Prefixo das listas",
+                    "list_auto_sort": "Ordenar listas automaticamente",
+                    "list_item_case": "Alterar maiúsculas/minúsculas dos itens",
+                    "sync_interval": "Intervalo de sincronização",
+                    "empty_item_placeholder": "Texto para itens vazios"
+                },
+                "data_description": {
+                    "lists_to_sync": "Escolha quais listas sincronizar. Você pode selecionar várias listas. Listas arquivadas ou excluídas não aparecem aqui.",
+                    "default_shopping_list": "Escolha a lista do Google Keep que vai receber os comandos de voz de lista de compras e os serviços shopping_list.*. Ela também será selecionada por padrão no painel Listas. Selecione **Nenhum** para manter a lista de compras nativa como padrão.",
+                    "list_prefix": "(Opcional, pode ficar em branco) Adiciona um identificador único no início do nome de cada lista no Home Assistant. Por exemplo, informar 'Google' exibirá sua lista de compras como 'Google Lista de Compras'. Deixe em branco para manter os nomes como estão no Google Keep.",
+                    "list_auto_sort": "Ordena automaticamente os itens das listas em ordem alfabética no Home Assistant e no Google Keep. Observação: ativar esta opção desabilita a reordenação manual dos itens. Desative a ordenação automática se preferir organizar os itens manualmente.",
+                    "list_item_case": "Altera todos os itens das suas listas para o formato escolhido. O padrão é não alterar nada. A alteração é bidirecional, então os itens serão alterados no Home Assistant e no Google Keep.",
+                    "sync_interval": "Com que frequência sincronizar com o Google Keep (1-1440 minutos). Valores menores atualizam mais rápido, mas podem causar limitação de taxa. Aumente este valor se tiver problemas de sincronização.",
+                    "empty_item_placeholder": "Texto exibido para itens vazios do Google Keep (usado como separador). O padrão é em branco (desativado), o que filtra itens vazios. Use um texto único que você não use para itens reais. Incompatível com a ordenação automática."
+                }
+            },
+            "reauth_confirm": {
+                "title": "Reautenticar",
+                "description": "A integração Google Keep Sync precisa reautenticar sua conta. Você pode informar um token master ou um token OAuth."
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Configurar opções",
+                "description": "Escolha as listas para sincronizar e configure as demais opções.",
+                "data": {
+                    "lists_to_sync": "Listas para sincronizar",
+                    "default_shopping_list": "Lista de compras padrão",
+                    "list_prefix": "Prefixo das listas",
+                    "list_auto_sort": "Ordenar listas automaticamente",
+                    "list_item_case": "Alterar maiúsculas/minúsculas dos itens",
+                    "sync_interval": "Intervalo de sincronização",
+                    "empty_item_placeholder": "Texto para itens vazios"
+                },
+                "data_description": {
+                    "lists_to_sync": "Escolha quais listas sincronizar. Você pode selecionar várias listas. Listas arquivadas ou excluídas não aparecem aqui.",
+                    "default_shopping_list": "Escolha a lista do Google Keep que vai receber os comandos de voz de lista de compras e os serviços shopping_list.*. Ela também será selecionada por padrão no painel Listas. Selecione **Nenhum** para manter a lista de compras nativa como padrão.",
+                    "list_prefix": "(Opcional, pode ficar em branco) Adiciona um identificador único no início do nome de cada lista no Home Assistant. Por exemplo, informar 'Google' exibirá sua lista de compras como 'Google Lista de Compras'. Deixe em branco para manter os nomes como estão no Google Keep.",
+                    "list_auto_sort": "Ordena automaticamente os itens das listas em ordem alfabética no Home Assistant e no Google Keep. Observação: ativar esta opção desabilita a reordenação manual dos itens. Desative a ordenação automática se preferir organizar os itens manualmente.",
+                    "list_item_case": "Altera todos os itens das suas listas para o formato escolhido. O padrão é não alterar nada. A alteração é bidirecional, então os itens serão alterados no Home Assistant e no Google Keep.",
+                    "sync_interval": "Com que frequência sincronizar com o Google Keep (1-1440 minutos). Valores menores atualizam mais rápido, mas podem causar limitação de taxa. Aumente este valor se tiver problemas de sincronização.",
+                    "empty_item_placeholder": "Texto exibido para itens vazios do Google Keep (usado como separador). O padrão é em branco (desativado), o que filtra itens vazios. Use um texto único que você não use para itens reais. Incompatível com a ordenação automática."
+                }
+            }
+        },
+        "error": {
+            "list_fetch_error": "Ocorreu um erro ao buscar as listas."
+        },
+        "abort": {
+            "reauth_required": "Reautenticação necessária",
+            "integration_not_setup": "Integração não configurada"
+        }
+    }
+}

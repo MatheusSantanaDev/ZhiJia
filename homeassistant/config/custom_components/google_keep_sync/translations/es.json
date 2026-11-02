@@ -1,0 +1,85 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Integración ya configurada para este usuario.",
+            "reauth_successful": "Reautenticación exitosa"
+        },
+        "error": {
+            "cannot_connect": "Fallo al conectar.",
+            "invalid_auth": "Autenticación inválida.",
+            "unknown": "Ocurrió un error inesperado.",
+            "already_configured": "Integración ya configurada para este usuario.",
+            "blank_username": "El nombre de usuario no puede estar en blanco.",
+            "invalid_email": "Dirección de correo electrónico inválida.",
+            "missing_token": "Se debe proporcionar un token.",
+            "invalid_token_format": "Token inválido. El token debe comenzar con 'oauth2_4/' (OAuth) o 'aas_et/' (master, 223 caracteres)."
+        },
+        "step": {
+            "user": {
+                "title": "Introduce las credenciales",
+                "description": "Introduce tu nombre de usuario y token de tu cuenta de Google. Puedes usar un token maestro o un token OAuth. Consulta [Léame]({invalid_auth_url}) para obtener instrucciones sobre cómo obtener un token.",
+                "data": {
+                    "username": "Nombre de usuario",
+                    "token": "Token"
+                }
+            },
+            "options": {
+                "title": "Configurar opciones",
+                "description": "Elija listas para sincronizar y configurar otras opciones.",
+                "data": {
+                    "lists_to_sync": "Listas a Sincronizar",
+                    "list_prefix": "Prefijo de Lista",
+                    "list_auto_sort": "Ordenar Listas Automáticamente",
+                    "list_item_case": "Cambiar mayúsculas de los elementos de la lista",
+                    "sync_interval": "Intervalo de Sincronización",
+                    "empty_item_placeholder": "Marcador de Elemento Vacío"
+                },
+                "data_description": {
+                    "lists_to_sync": "Elija qué listas sincronizar. Puede seleccionar varias listas. Las listas archivadas o eliminadas no se muestran aquí.",
+                    "list_prefix": "(Opcional, puede dejarse en blanco) Agrega un identificador único al principio de cada nombre de lista en Home Assistant. Por ejemplo, al introducir 'Google', tu lista de compras se mostrará como 'Google Lista de Compras'. Déjalo vacío para mantener los nombres de las listas tal como están en Google Keep.",
+                    "list_auto_sort": "Ordena automáticamente los elementos de la lista alfabéticamente en Home Assistant y Google Keep. Nota: Habilitar esto desactiva el reordenamiento manual de elementos. Desactiva el orden automático si prefieres organizar los elementos tú mismo.",
+                    "list_item_case": "Cambia todos los elementos de tu lista a la configuración de mayúsculas especificada. Por defecto no se cambia nada. Este cambio es bidireccional, por lo que los elementos de tu lista en Home Assistant y en Google Keep serán modificados.",
+                    "sync_interval": "Con qué frecuencia sincronizar con Google Keep (1-1440 minutos). Valores más bajos proporcionan actualizaciones más rápidas pero pueden causar limitación de velocidad. Aumenta este valor si experimentas problemas de sincronización.",
+                    "empty_item_placeholder": "Texto a mostrar para elementos vacíos de Google Keep (usados como separadores). Por defecto está en blanco (desactivado), lo que filtra los elementos vacíos. Usa texto único que no usarás para elementos reales. Incompatible con ordenación automática."
+                }
+            },
+            "reauth_confirm": {
+                "title": "Reautenticar",
+                "description": "La integración de Google Keep Sync necesita reautenticar tu cuenta. Puedes introducir un token maestro o un token OAuth."
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Configurar opciones",
+                "description": "Elija listas para sincronizar y configurar otras opciones.",
+                "data": {
+                    "lists_to_sync": "Listas a Sincronizar",
+                    "list_prefix": "Prefijo de Lista",
+                    "list_auto_sort": "Ordenar Listas Automáticamente",
+                    "list_item_case": "Cambiar mayúsculas de los elementos de la lista",
+                    "sync_interval": "Intervalo de Sincronización",
+                    "empty_item_placeholder": "Marcador de Elemento Vacío"
+                },
+                "data_description": {
+                    "lists_to_sync": "Elija qué listas sincronizar. Puede seleccionar varias listas. Las listas archivadas o eliminadas no se muestran aquí.",
+                    "list_prefix": "(Opcional, puede dejarse en blanco) Agrega un identificador único al principio de cada nombre de lista en Home Assistant. Por ejemplo, al introducir 'Google', tu lista de compras se mostrará como 'Google Lista de Compras'. Déjalo vacío para mantener los nombres de las listas tal como están en Google Keep.",
+                    "list_auto_sort": "Ordena automáticamente los elementos de la lista alfabéticamente en Home Assistant y Google Keep. Nota: Habilitar esto desactiva el reordenamiento manual de elementos. Desactiva el orden automático si prefieres organizar los elementos tú mismo.",
+                    "list_item_case": "Cambia todos los elementos de tu lista a la configuración de mayúsculas especificada. Por defecto no se cambia nada. Este cambio es bidireccional, por lo que los elementos de tu lista en Home Assistant y en Google Keep serán modificados.",
+                    "sync_interval": "Con qué frecuencia sincronizar con Google Keep (1-1440 minutos). Valores más bajos proporcionan actualizaciones más rápidas pero pueden causar limitación de velocidad. Aumenta este valor si experimentas problemas de sincronización.",
+                    "empty_item_placeholder": "Texto a mostrar para elementos vacíos de Google Keep (usados como separadores). Por defecto está en blanco (desactivado), lo que filtra los elementos vacíos. Usa texto único que no usarás para elementos reales. Incompatible con ordenación automática."
+                }
+            }
+        },
+        "error": {
+            "list_fetch_error": "Error al obtener las listas",
+            "cannot_connect": "No se puede conectar",
+            "invalid_auth": "Autenticación inválida"
+        },
+        "abort": {
+            "reauth_required": "Reautenticación necesaria",
+            "integration_not_setup": "Integración no configurada"
+        }
+    }
+}

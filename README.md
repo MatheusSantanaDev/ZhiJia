@@ -181,6 +181,7 @@ docker-compose up -d --force-recreate ha-frontend
 | **MQTT** | Pub/Sub: `home/led/color`, `home/servo/angle`, `home/strip/*` |
 | **Consumo Energia** | Simulação por circuito no ESP32 (W/kWh) + tarifa CEMIG via ANEEL |
 | **Consumo Água** | Extrato do Dmae (Uberlândia/MG) via portal público + custo estimado em R$ |
+| **Lista de Compras** | Sincronização bidirecional com Google Keep (integração customizada) |
 | **Duck DNS** | DDNS automático |
 | **Previsão Tempo** | BrasilAPI (CEP) + Open-Meteo (6 dias) |
 | **Spotify** | OAuth + Web Playback SDK |
@@ -394,6 +395,154 @@ próxima execução de 6 h:
 
 Se o portal cair, o script cai no cache (6 h) e marca `stale: true` — `consultado_em`
 parar de avançar é o sinal. Sem cache nenhum, o sensor mantém o último estado.
+
+---
+
+## Lista de Compras (Google Keep)
+
+O Shopping List nativo do Home Assistant **não** se conecta ao Google Keep. Para unificar as
+listas, o projeto usa a integração customizada
+[**Google Keep Sync**](https://github.com/watkins-matt/home-assistant-google-keep-sync)
+(v1.2.0), instalada manualmente em `homeassistant/config/custom_components/google_keep_sync`
+porque o HACS não está instalado neste projeto.
+
+- **Bidirecional:** cada lista selecionada do Keep vira uma entidade `todo.google_keep_*` no HA.
+- **HA → Keep:** imediato.
+- **Keep → HA:** polling, 15 min por padrão (configurável nas opções da integração).
+- **Conflito:** se o mesmo item for editado nos dois lados entre polls, a edição do HA vence.
+- **API não oficial** (`gkeepapi`): pode quebrar se o Google mudar o serviço.
+
+### Configuração inicial
+
+1. Gere um **OAuth token** da conta Google (recomendado: conta dedicada, com as listas do Keep
+   compartilhadas com ela). O fluxo antigo de master token por senha foi bloqueado pelo Google.
+
+   1. Abra `https://accounts.google.com/EmbeddedSetup` em uma janela anônima.
+   2. Entre com a conta e clique em **I Agree**. A página vai ficar carregando; isso é normal.
+   3. Com a página travada, abra o DevTools (`F12` ou `Cmd+Option+I`).
+   4. Vá em **Application → Storage → Cookies → https://accounts.google.com**.
+   5. Copie o valor do cookie **`oauth_token`** (começa com `oauth2_4/`).
+
+2. No Home Assistant: **Configurações → Dispositivos e Serviços → Adicionar Integração →
+   Google Keep Sync**.
+
+3. Informe o e-mail da conta e o token `oauth2_4/...`; selecione as listas que deseja
+   sincronizar. A integração troca o token OAuth por um master token internamente.
+
+4. As listas aparecem como `todo.google_keep_...`. Use o card **Lista** no dashboard ou os
+   serviços `todo.add_item`, `todo.update_item` e `todo.remove_item` em automações.
+
+### Lista de compras padrão (Keep)
+
+A integração pode tratar uma lista do Keep como a **Lista de compras padrão** do Home
+Assistant. Por padrão, ela procura uma lista chamada `Lista de Compras` ou `Shopping List`
+entre as listas sincronizadas. Você pode escolher outra lista (ou desativar) em
+**Configurações → Dispositivos e Serviços → Google Keep Sync → Configurar → Lista de compras
+padrão**.
+
+Com a lista padrão definida:
+
+- Os serviços `shopping_list.add_item`, `remove_item`, `complete_item`, `incomplete_item`,
+  `complete_all`, `incomplete_all`, `clear_completed_items` e `sort` passam a operar na lista
+  do Keep.
+- Os comandos de voz de lista de compras (`HassShoppingListAddItem`,
+  `HassShoppingListCompleteItem` e `HassShoppingListLastItems`) usam a lista do Keep.
+- O painel **Listas** aplica essa lista como seleção inicial uma vez por navegador; depois disso,
+  respeita a lista escolhida manualmente.
+- O card **Lista de compras** do dashboard prefere essa lista.
+- A entidade recebe o atributo `default_shopping_list: true`, usado pelo painel e pelo card
+  para identificar a lista padrão.
+
+A lista escolhida é adicionada automaticamente às listas sincronizadas. Se você selecionar
+**Nenhum** (**None**), os serviços e comandos de voz voltam para a Lista de compras nativa do
+Home Assistant.
+
+> O `shopping_list.sort` só reordena a lista do Keep quando a opção **Ordenar listas
+> automaticamente** (**Automatically Sort Lists**) está desativada. Com a ordenação automática
+> ativa, o próprio Keep mantém a ordem.
+
+> `todo.shopping_list` continua sendo a entidade nativa, que fica oculta do painel. Para
+> automações que chamam `todo.*` diretamente, use a entidade
+> `todo.google_keep_lista_de_compras` ou os serviços `shopping_list.*` acima.
+
+### No painel Listas
+
+- **Sincronizar agora:** o painel Listas mostra um ícone de sincronizar no topo (ao lado do
+  menu de três pontos). Ele chama `google_keep_sync.request_sync` com `force: true`.
+- **Reordenar:** no computador, arraste pelo ícone de grade à esquerda de cada lista. A ordem
+  fica salva no navegador (localStorage) e vale também para o menu suspenso do celular.
+- **Remover lista / Remover do painel:** menu de três pontos. O comportamento depende da
+  integração:
+  - **Google Keep:** move a lista para a lixeira do Keep, remove da sincronização e remove a
+    entidade do Home Assistant.
+  - **Lista local:** exclui a lista definitivamente.
+  - **Lista de compras nativa:** oculta a lista do Home Assistant. Para removê-la completamente,
+    exclua a integração **Lista de compras** nas configurações.
+  - **iCloud/Lembretes e outras integrações sem exclusão via API:** a lista é apenas ocultada
+    do Home Assistant e continua existindo no serviço original.
+
+O serviço também pode ser chamado em automações/scripts:
+
+```yaml
+action:
+  - service: google_keep_sync.delete_list
+    target:
+      entity_id: todo.google_keep_lista_de_compras
+```
+
+Exemplo de automação para adicionar um item à lista padrão (funciona mesmo que o nome da
+lista mude):
+
+```yaml
+action:
+  - service: shopping_list.add_item
+    data:
+      name: "Leite"
+```
+
+Também é possível mirar diretamente a entidade do Keep:
+
+```yaml
+action:
+  - service: todo.add_item
+    target:
+      entity_id: todo.google_keep_lista_de_compras
+    data:
+      item: "Leite"
+```
+
+Para forçar uma sincronização imediata com o Keep (respeitando o cooldown do serviço):
+
+```yaml
+action:
+  - service: google_keep_sync.request_sync
+```
+
+> **Segurança:** o master token dá acesso total à conta Google, não apenas ao Keep. Por isso,
+> use uma conta dedicada e compartilhe somente as listas necessárias. Não use a conta principal.
+
+### Atualização
+
+Substitua a pasta `custom_components/google_keep_sync` pela versão nova do repositório e reinicie:
+
+```bash
+docker restart zhijia-homeassistant
+```
+
+> **Atenção:** a cópia local tem modificações próprias: o serviço
+> `google_keep_sync.delete_list`, a ponte da Lista de compras padrão
+> (`shopping_list_bridge.py`), a opção de lista padrão no config flow e o
+> botão/ordenação/seleção padrão no painel Listas. Ao atualizar pelo upstream, essas mudanças
+> precisam ser reaplicadas.
+
+Se alterar o painel/frontend, recompile e recrie o container do frontend:
+
+```bash
+cd homeassistant-frontend
+SKIP_FETCH_NIGHTLY_TRANSLATIONS=1 yarn build --modern
+cd ..
+docker compose up -d --force-recreate ha-frontend
+```
 
 ---
 

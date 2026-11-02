@@ -1,0 +1,18 @@
+request_sync:
+  description: Requests a sync of Google Keep notes. This will update Home Assistant with the latest notes from Google Keep. Note that calling this too frequently will result in a cooldown period, where further request_sync calls will be ignored until the cooldown period has expired.
+  fields:
+    force:
+      description: Force a sync even if the last update was less than 55 seconds ago.
+      selector:
+        boolean: {}
+
+delete_list:
+  description: Moves a Google Keep list to the trash and removes it from Home Assistant.
+  fields:
+    entity_id:
+      description: Google Keep Sync list entity to move to the Google Keep trash.
+      required: true
+      selector:
+        entity:
+          domain: todo
+          integration: google_keep_sync

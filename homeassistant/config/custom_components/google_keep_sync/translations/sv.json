@@ -1,0 +1,83 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Integrationen är redan konfigurerad för denna användare.",
+            "reauth_successful": "Om-autentisering lyckades"
+        },
+        "error": {
+            "cannot_connect": "Misslyckades med att ansluta.",
+            "invalid_auth": "Ogiltig autentisering.",
+            "unknown": "Ett oväntat fel inträffade.",
+            "already_configured": "Integrationen är redan konfigurerad för denna användare.",
+            "blank_username": "Användarnamnet får inte vara tomt.",
+            "invalid_email": "Ogiltig e-postadress.",
+            "missing_token": "Token måste anges.",
+            "invalid_token_format": "Ogiltig token angiven. Token måste börja med 'oauth2_4/' (OAuth) eller 'aas_et/' (master, 223 tecken)."
+        },
+        "step": {
+            "user": {
+                "title": "Ange inloggningsuppgifter",
+                "description": "Ange ditt användarnamn och token för ditt Google-konto. Du kan använda antingen en master token eller en OAuth token. Se [Readme]({invalid_auth_url}) för instruktioner om hur du får en token.",
+                "data": {
+                    "username": "Användarnamn",
+                    "token": "Token"
+                }
+            },
+            "options": {
+                "title": "Konfigurera alternativ",
+                "description": "Välj listor att synkronisera och konfigurera andra alternativ.",
+                "data": {
+                    "lists_to_sync": "Listor att Synkronisera",
+                    "list_prefix": "Listprefix",
+                    "list_auto_sort": "Sortera Listor Automatiskt",
+                    "list_item_case": "Ändra versalisering för listobjekt",
+                    "sync_interval": "Synkroniseringsintervall",
+                    "empty_item_placeholder": "Platshållare för tomma objekt"
+                },
+                "data_description": {
+                    "lists_to_sync": "Välj vilka listor som ska synkroniseras. Du kan välja flera listor. Arkiverade eller raderade listor visas inte här.",
+                    "list_prefix": "(Valfritt, kan lämnas tomt) Lägg till en unik identifierare framför varje listnamn i Home Assistant. Till exempel, genom att skriva 'Google' kommer din inköpslista att visas som 'Google Inköpslista'. Lämna fältet tomt för att behålla listornas namn som de är i Google Keep.",
+                    "list_auto_sort": "Sorterar automatiskt listobjekt alfabetiskt i både Home Assistant och Google Keep. Obs: Om detta aktiveras inaktiveras manuell omsortering av objekt. Inaktivera automatisk sortering om du föredrar att ordna objekt själv.",
+                    "list_item_case": "Ändrar alla dina listobjekt till angivet skiftläge. Standard är att inte ändra något. Detta är dubbelriktat, så dina listobjekt i både Home Assistant och Google Keep kommer att ändras.",
+                    "sync_interval": "Hur ofta synkronisering med Google Keep sker (1-1440 minuter). Lägre värden ger snabbare uppdateringar men kan orsaka hastighetsbegränsning. Öka detta värde om du upplever synkroniseringsproblem.",
+                    "empty_item_placeholder": "Text som visas för tomma Google Keep-objekt (används som avgränsare). Standard är tomt (inaktiverat), vilket filtrerar bort tomma objekt. Använd unik text som du inte använder för riktiga objekt. Inkompatibel med automatisk sortering."
+                }
+            },
+            "reauth_confirm": {
+                "title": "Autentisera igen",
+                "description": "Google Keep Sync-integrationen behöver autentisera ditt konto igen. Du kan ange antingen en master token eller en OAuth token."
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Konfigurera alternativ",
+                "description": "Välj listor att synkronisera och konfigurera andra alternativ.",
+                "data": {
+                    "lists_to_sync": "Listor att Synkronisera",
+                    "list_prefix": "Listprefix",
+                    "list_auto_sort": "Sortera Listor Automatiskt",
+                    "list_item_case": "Ändra versalisering för listobjekt",
+                    "sync_interval": "Synkroniseringsintervall",
+                    "empty_item_placeholder": "Platshållare för tomma objekt"
+                },
+                "data_description": {
+                    "lists_to_sync": "Välj vilka listor som ska synkroniseras. Du kan välja flera listor. Arkiverade eller raderade listor visas inte här.",
+                    "list_prefix": "(Valfritt, kan lämnas tomt) Lägg till en unik identifierare framför varje listnamn i Home Assistant. Till exempel, genom att skriva 'Google' kommer din inköpslista att visas som 'Google Inköpslista'. Lämna fältet tomt för att behålla listornas namn som de är i Google Keep.",
+                    "list_auto_sort": "Sorterar automatiskt listobjekt alfabetiskt i både Home Assistant och Google Keep. Obs: Om detta aktiveras inaktiveras manuell omsortering av objekt. Inaktivera automatisk sortering om du föredrar att ordna objekt själv.",
+                    "list_item_case": "Ändrar alla dina listobjekt till angivet skiftläge. Standard är att inte ändra något. Detta är dubbelriktat, så dina listobjekt i både Home Assistant och Google Keep kommer att ändras.",
+                    "sync_interval": "Hur ofta synkronisering med Google Keep sker (1-1440 minuter). Lägre värden ger snabbare uppdateringar men kan orsaka hastighetsbegränsning. Öka detta värde om du upplever synkroniseringsproblem.",
+                    "empty_item_placeholder": "Text som visas för tomma Google Keep-objekt (används som avgränsare). Standard är tomt (inaktiverat), vilket filtrerar bort tomma objekt. Använd unik text som du inte använder för riktiga objekt. Inkompatibel med automatisk sortering."
+                }
+            }
+        },
+        "error": {
+            "list_fetch_error": "Fel uppstod vid hämtning av listor"
+        },
+        "abort": {
+            "reauth_required": "Omautentisering krävs",
+            "integration_not_setup": "Integrationen är inte konfigurerad"
+        }
+    }
+}
