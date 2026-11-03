@@ -6,22 +6,11 @@
 shopping_budget:
   todo_entity: todo.google_keep_lista_de_compras
 
+  # Mercado usado na busca automática ao adicionar um produto. O ABC é o
+  # único configurado agora porque possui preço real por loja e API estável.
+  default_market: abc
+
   markets:
-    assai:
-      name: Assaí
-      type: assai
-      url: https://www.assai.com.br/ofertas/minas-gerais/assai-uberlandia
-      flyer_url: https://www.assai.com.br/sites/default/files/static/ofertas_assai.json
-      store_nid: 3098
-      store_eid: 12
-      store_loja_id: 158
-
-    bahamas:
-      name: Bahamas
-      type: bahamas
-      url: https://bahamasmix.com.br/regiao/uberlandia/
-      flyers_url: https://bahamasmix.com.br/encartes/
-
     abc:
       name: ABC
       type: abc
@@ -31,6 +20,22 @@ shopping_budget:
       # Hiper ABC Uberlândia (Av. João Naves de Ávila, 317).
       store_id: 909
       auto_store: true
+
+    # Assaí e Bahamas ficam desativados: os encartes em PDF/imagem não têm
+    # uma API de consulta confiável. Para reativar, descomente e reinicie o HA.
+    # assai:
+    #   name: Assaí
+    #   type: assai
+    #   url: https://www.assai.com.br/ofertas/minas-gerais/assai-uberlandia
+    #   flyer_url: https://www.assai.com.br/sites/default/files/static/ofertas_assai.json
+    #   store_nid: 3098
+    #   store_eid: 12
+    #   store_loja_id: 158
+    # bahamas:
+    #   name: Bahamas
+    #   type: bahamas
+    #   url: https://bahamasmix.com.br/regiao/uberlandia/
+    #   flyers_url: https://bahamasmix.com.br/encartes/
 
   ocr:
     enabled: true

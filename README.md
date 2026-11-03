@@ -170,36 +170,38 @@ docker-compose up -d --force-recreate ha-frontend
 
 ---
 
-## Orçamento de compras (Assaí, Bahamas e ABC)
+## Orçamento de compras (ABC)
 
 A lista padrão do Google Keep ganhou uma aba **Orçamento** dentro do próprio
-painel de tarefas. Ela compara os itens da lista em **Assaí**, **Bahamas** e
-**ABC** de Uberlândia e mostra, por mercado:
+painel de tarefas. Ela consulta os itens da lista no **ABC** de Uberlândia e
+mostra:
 
 - total dos itens com preço;
 - total já comprado (preço congelado no momento da conclusão);
 - total restante (preços atuais);
 - cobertura e itens ainda sem preço.
 
-**Configuração** — `homeassistant/config/packages/compras.yaml` contém os
-mercados, URLs, loja do ABC, limites de confiança do OCR e TTLs. O catálogo de
-produtos, marcas, apelidos e gramaturas fica no `Store` da integração e é
-editável pela aba Orçamento. A lista usada é a que tem
-`default_shopping_list: true` (hoje, `todo.google_keep_lista_de_compras`).
+**Configuração** — `homeassistant/config/packages/compras.yaml` contém o
+mercado padrão, URLs, loja do ABC e TTLs. O catálogo de produtos, marcas,
+apelidos e gramaturas fica no `Store` da integração e é editável pela aba
+Orçamento. A lista usada é a que tem `default_shopping_list: true` (hoje,
+`todo.google_keep_lista_de_compras`).
 
 **Como funciona**
 
 - O **ABC** usa a API da loja online; a loja mais próxima é escolhida pela
   localização da casa (`zone.home`). O resultado é casado por marca e embalagem.
-- **Assaí** lê o encarte em imagem com Tesseract/Poppler. O preço do encarte é
-  sugerido com confiança; quando o texto é ambíguo, aparece como sugestão em vez
-  de ser aplicado sozinho.
-- **Bahamas** lê o PDF semanal do encarte; como o material é uma imagem em baixa
-  resolução, alguns preços precisam de correção manual. Sempre há o atalho
-  **Google** e o campo de preço manual por mercado.
-- Itens novos entram **pela aba Orçamento** (busca no catálogo ou nome livre). O
-  campo nativo da lista continua aceitando texto livre; a busca de catálogo não
-  é adicionada a ele.
+- Ao adicionar ou vincular um produto, a integração consulta automaticamente o
+  preço do mercado padrão (`default_market: abc`). Preços com boa confiança são
+  preenchidos; resultados duvidosos viram uma sugestão **ABC** para confirmar.
+  Um preço manual sempre tem prioridade e nunca é sobrescrito.
+- **Assaí** e **Bahamas** ficam desativados porque os encartes não oferecem uma
+  API de consulta confiável. O código de OCR continua no projeto e pode ser
+  reativado no YAML, mas não aparece na aba enquanto os mercados estiverem
+  comentados.
+- Sempre há o atalho **Google** e o campo de preço manual por mercado. O campo
+  nativo da lista continua aceitando texto livre; a busca de catálogo fica
+  apenas na aba Orçamento.
 - Marca e gramatura ficam salvas no item até serem editadas. Ao concluir um item,
   os preços daquele momento são congelados para o total de comprados.
 
@@ -238,7 +240,7 @@ docker compose up -d --force-recreate ha-frontend
 | **Consumo Energia** | Simulação por circuito no ESP32 (W/kWh) + tarifa CEMIG via ANEEL |
 | **Consumo Água** | Extrato do Dmae (Uberlândia/MG) via portal público + custo estimado em R$ |
 | **Lista de Compras** | Sincronização bidirecional com Google Keep (integração customizada) |
-| **Orçamento de Compras** | Comparativo Assaí/Bahamas/ABC, OCR de encartes e preço congelado ao concluir |
+| **Orçamento de Compras** | Preço automático do ABC, busca no catálogo e preço congelado ao concluir |
 | **Duck DNS** | DDNS automático |
 | **Previsão Tempo** | BrasilAPI (CEP) + Open-Meteo (6 dias) |
 | **Spotify** | OAuth + Web Playback SDK |

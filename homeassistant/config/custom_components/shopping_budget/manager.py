@@ -153,6 +153,18 @@ class ShoppingBudgetManager:
         self.todo_entity_id = config.get("todo_entity") or DEFAULT_TODO_ENTITY
         self.market_configs = self._build_markets(config.get("markets"))
         self._markets_by_id = {market["id"]: market for market in self.market_configs}
+        requested_default = config.get("default_market")
+        if requested_default in self._markets_by_id:
+            self.default_market_id = str(requested_default)
+        else:
+            self.default_market_id = next(
+                (
+                    market["id"]
+                    for market in self.market_configs
+                    if market.get("type") == "abc"
+                ),
+                self.market_configs[0]["id"] if self.market_configs else "",
+            )
         self.price_ttl_hours = float(
             config.get("price_ttl_hours", DEFAULT_PRICE_TTL_HOURS)
         )
@@ -189,6 +201,7 @@ class ShoppingBudgetManager:
         self._pending_items: list[TodoItem] | None = None
         self._process_lock = asyncio.Lock()
         self._refresh_lock = asyncio.Lock()
+        self._lookup_lock = asyncio.Lock()
         self._shutdown = False
         self._ocr_score_cache: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
@@ -425,6 +438,11 @@ class ShoppingBudgetManager:
                             item_data, estimated=True
                         ):
                             changed = True
+                    elif status != "completed":
+                        product, _suggestions, _score = self._resolve_product(
+                            item_data, summary
+                        )
+                        self._schedule_default_price(product)
                 elif previous_status != status:
                     if status == "completed":
                         if self._snapshot_item_prices(
@@ -1027,6 +1045,11 @@ class ShoppingBudgetManager:
             "ocr_available": available,
             "ocr_packages": packages,
             "ocr_language": self.ocr_language,
+            "default_market": self.default_market_id,
+            "default_market_name": (
+                self._market(self.default_market_id) or {}
+            ).get("name")
+            or self.default_market_id,
             "needs_refresh": needs_refresh,
             "refreshing": self._refresh_lock.locked(),
             "last_refresh": self.data["meta"].get("last_refresh"),
@@ -1121,6 +1144,118 @@ class ShoppingBudgetManager:
                 "errors": errors,
             }
 
+    def _abc_record(
+        self, product: dict[str, Any], result: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build the stored price record for one ABC search result."""
+        return {
+            "price": result["price"],
+            "source": "abc",
+            "updated_at": _utcnow(),
+            "product_name": result.get("product_name"),
+            "product_id_ext": result.get("product_id"),
+            "brand": result.get("brand"),
+            "package": result.get("package"),
+            "grams": result.get("grams"),
+            "unit": result.get("unit"),
+            "image": result.get("image"),
+            "confidence": result.get("score"),
+            "store_id": result.get("store_id"),
+            "store_name": result.get("store_name"),
+            "searched_term": result.get("searched_term"),
+            "url": self._abc.product_search_url(
+                result.get("searched_term") or product_display_name(product)
+            )
+            if self._abc
+            else None,
+        }
+
+    def _schedule_default_price(self, product: dict[str, Any] | None) -> None:
+        """Look up the default-market price without blocking the item action."""
+        if self._shutdown or not product:
+            return
+        market = self._market(self.default_market_id)
+        if not market or market.get("type") != "abc":
+            return
+        self.hass.async_create_task(self._async_lookup_default_price(product))
+
+    async def _async_lookup_default_price(
+        self, product: dict[str, Any], *, force: bool = False
+    ) -> None:
+        """Fetch and apply one real price for a newly added/linked product."""
+        market = self._market(self.default_market_id)
+        if (
+            self._shutdown
+            or not market
+            or market.get("type") != "abc"
+            or self._abc is None
+        ):
+            return
+
+        product_id = product.get("id")
+        if not product_id:
+            return
+        market_id = market["id"]
+
+        async with self._lookup_lock:
+            stored = self.data["prices"].setdefault(product_id, {}).get(market_id)
+            if isinstance(stored, dict) and stored.get("source") == "manual":
+                return
+            if (
+                not force
+                and isinstance(stored, dict)
+                and stored.get("source") == "abc"
+                and not _is_stale(stored.get("updated_at"), self.price_ttl_hours)
+            ):
+                return
+            suggestion = self.data["prices"].setdefault(product_id, {}).get(
+                "abc_suggestion"
+            )
+            if (
+                not force
+                and isinstance(suggestion, dict)
+                and not _is_stale(
+                    suggestion.get("updated_at"), self.price_ttl_hours
+                )
+            ):
+                return
+            if self._refresh_lock.locked():
+                return
+
+            try:
+                result, info = await self.hass.async_add_executor_job(
+                    self._abc.search_best, product
+                )
+            except Exception as err:  # noqa: BLE001 - lookup failure is non-fatal
+                errors = [f"{product_display_name(product)}: {err}"]
+                self.data["meta"].setdefault("market_errors", {})[market_id] = errors
+                self._save()
+                self._fire_event()
+                return
+
+            if not result:
+                errors = [str(error) for error in info.get("errors") or []]
+                if errors:
+                    self.data["meta"].setdefault("market_errors", {})[
+                        market_id
+                    ] = errors[-5:]
+                self._save()
+                return
+
+            record = self._abc_record(product, result)
+            if float(result.get("score") or 0) >= ABC_AUTO_SCORE:
+                self.data["prices"].setdefault(product_id, {})[
+                    market_id
+                ] = record
+                self.data["prices"][product_id].pop("abc_suggestion", None)
+            else:
+                self.data["prices"].setdefault(product_id, {})[
+                    "abc_suggestion"
+                ] = record
+            self.data["meta"].setdefault("market_errors", {}).pop(market_id, None)
+            self._save()
+            self._fire_event()
+
     async def _async_refresh_abc_market(
         self, market_id: str, force: bool
     ) -> dict[str, Any]:
@@ -1188,25 +1323,7 @@ class ShoppingBudgetManager:
                 suggestions += 1
                 errors.extend(info.get("errors") or [])
                 continue
-            record = {
-                "price": result["price"],
-                "source": "abc",
-                "updated_at": _utcnow(),
-                "product_name": result.get("product_name"),
-                "product_id_ext": result.get("product_id"),
-                "brand": result.get("brand"),
-                "package": result.get("package"),
-                "grams": result.get("grams"),
-                "unit": result.get("unit"),
-                "image": result.get("image"),
-                "confidence": result.get("score"),
-                "store_id": result.get("store_id"),
-                "store_name": result.get("store_name"),
-                "searched_term": result.get("searched_term"),
-                "url": self._abc.product_search_url(
-                    result.get("searched_term") or product_display_name(product)
-                ),
-            }
+            record = self._abc_record(product, result)
             if float(result.get("score") or 0) >= ABC_AUTO_SCORE:
                 self.data["prices"].setdefault(product_id, {})[market_id] = record
                 updated += 1
@@ -1574,6 +1691,7 @@ class ShoppingBudgetManager:
         if item_data.get("status") == "completed" and not item_data.get("purchased"):
             self._snapshot_item_prices(item_data, estimated=True)
         self._save()
+        self._schedule_default_price(product)
         self._fire_event()
         return {"product": product}
 
@@ -1610,6 +1728,8 @@ class ShoppingBudgetManager:
             summary = product_display_name(product)
         if not summary:
             raise ServiceValidationError("Informe o nome do item a adicionar.")
+        if product is None:
+            product, _suggestions, _score = self.catalog.resolve(summary)
         quantity = float(call.data.get("quantity", 1) or 1)
         before_uids = {
             item.uid for item in (entity.todo_items or []) if item.uid is not None
@@ -1666,6 +1786,7 @@ class ShoppingBudgetManager:
                 normalize(summary)
             ] = {"product_id": product["id"], "quantity": quantity}
         self._save()
+        self._schedule_default_price(product)
         self._fire_event()
         return {
             "uid": new_uid,

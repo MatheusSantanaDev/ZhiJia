@@ -75,6 +75,7 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(
                     "todo_entity", default=DEFAULT_TODO_ENTITY
                 ): cv.entity_id,
+                vol.Optional("default_market"): cv.slug,
                 vol.Optional("markets"): vol.Schema(
                     {cv.slug: MARKET_SCHEMA}
                 ),
