@@ -170,11 +170,11 @@ docker-compose up -d --force-recreate ha-frontend
 
 ---
 
-## Orçamento de compras (ABC)
+## Orçamento de compras (ABC e Atacadão)
 
 A lista padrão do Google Keep ganhou uma aba **Orçamento** dentro do próprio
-painel de tarefas. Ela consulta os itens da lista no **ABC** de Uberlândia e
-mostra:
+painel de tarefas. Ela consulta os itens da lista no **ABC** e no **Atacadão**
+de Uberlândia e mostra:
 
 - total dos itens com preço;
 - total já comprado (preço congelado no momento da conclusão);
@@ -182,19 +182,22 @@ mostra:
 - cobertura e itens ainda sem preço.
 
 **Configuração** — `homeassistant/config/packages/compras.yaml` contém o
-mercado padrão, URLs, loja do ABC e TTLs. O catálogo de produtos, marcas,
-apelidos e gramaturas fica no `Store` da integração e é editável pela aba
-Orçamento. A lista usada é a que tem `default_shopping_list: true` (hoje,
-`todo.google_keep_lista_de_compras`).
+mercado principal, URLs, loja do ABC, CEP do Atacadão e TTLs. O catálogo de
+produtos, marcas, apelidos e gramaturas fica no `Store` da integração e é
+editável pela aba Orçamento. A lista usada é a que tem
+`default_shopping_list: true` (hoje, `todo.google_keep_lista_de_compras`).
 
 **Como funciona**
 
 - O **ABC** usa a API da loja online; a loja mais próxima é escolhida pela
   localização da casa (`zone.home`). O resultado é casado por marca e embalagem.
-- Ao adicionar ou vincular um produto, a integração consulta automaticamente o
-  preço do mercado padrão (`default_market: abc`). Preços com boa confiança são
-  preenchidos; resultados duvidosos viram uma sugestão **ABC** para confirmar.
-  Um preço manual sempre tem prioridade e nunca é sobrescrito.
+- O **Atacadão** usa a API VTEX da loja online. A busca retorna o catálogo e a
+  entrega é simulada com o CEP configurado para obter o preço da loja local.
+- Ao adicionar ou vincular um produto, a integração consulta automaticamente
+  **ABC e Atacadão** (`default_market: abc` define apenas o mercado principal).
+  Preços com boa confiança são preenchidos; resultados duvidosos viram uma
+  sugestão do mercado para confirmar. Um preço manual sempre tem prioridade e
+  nunca é sobrescrito.
 - **Assaí** e **Bahamas** ficam desativados porque os encartes não oferecem uma
   API de consulta confiável. O código de OCR continua no projeto e pode ser
   reativado no YAML, mas não aparece na aba enquanto os mercados estiverem
@@ -240,7 +243,7 @@ docker compose up -d --force-recreate ha-frontend
 | **Consumo Energia** | Simulação por circuito no ESP32 (W/kWh) + tarifa CEMIG via ANEEL |
 | **Consumo Água** | Extrato do Dmae (Uberlândia/MG) via portal público + custo estimado em R$ |
 | **Lista de Compras** | Sincronização bidirecional com Google Keep (integração customizada) |
-| **Orçamento de Compras** | Preço automático do ABC, busca no catálogo e preço congelado ao concluir |
+| **Orçamento de Compras** | Preço automático do ABC e Atacadão, Google como fallback e preço congelado ao concluir |
 | **Duck DNS** | DDNS automático |
 | **Previsão Tempo** | BrasilAPI (CEP) + Open-Meteo (6 dias) |
 | **Spotify** | OAuth + Web Playback SDK |

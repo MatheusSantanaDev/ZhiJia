@@ -31,7 +31,9 @@ _LOGGER = logging.getLogger(__name__)
 MARKET_SCHEMA = vol.Schema(
     {
         vol.Required("name"): cv.string,
-        vol.Required("type"): vol.In(["abc", "assai", "bahamas", "manual"]),
+        vol.Required("type"): vol.In(
+            ["abc", "atacadao", "assai", "bahamas", "manual"]
+        ),
         vol.Optional("enabled", default=True): cv.boolean,
         vol.Optional("url"): cv.string,
         vol.Optional("flyer_url"): cv.string,
@@ -41,6 +43,8 @@ MARKET_SCHEMA = vol.Schema(
         vol.Optional("store_nid"): vol.Coerce(int),
         vol.Optional("store_eid"): vol.Coerce(int),
         vol.Optional("store_loja_id"): vol.Coerce(int),
+        vol.Optional("postal_code"): cv.string,
+        vol.Optional("store_name"): cv.string,
         vol.Optional("auto_store", default=True): cv.boolean,
         vol.Optional("eversion"): cv.string,
         vol.Optional("uid"): cv.string,

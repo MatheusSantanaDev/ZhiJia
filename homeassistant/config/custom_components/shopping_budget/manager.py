@@ -70,12 +70,13 @@ from .const import (
 )
 from .ocr import available_packages, ocr_available
 from .providers.abc import ABCError, ABCProvider
+from .providers.atacadao import AtacadaoError, AtacadaoProvider
 from .providers.assai import AssaiError, AssaiProvider
 from .providers.bahamas import BahamasError, BahamasProvider
 
 _LOGGER = logging.getLogger(__name__)
 
-ABC_AUTO_SCORE = 0.60
+ONLINE_AUTO_SCORE = 0.60
 
 
 def _utcnow() -> str:
@@ -208,17 +209,21 @@ class ShoppingBudgetManager:
         latitude = getattr(hass.config, "latitude", 0.0) or 0.0
         longitude = getattr(hass.config, "longitude", 0.0) or 0.0
         self._abc: ABCProvider | None = None
+        self._atacadao: AtacadaoProvider | None = None
         self._assai: AssaiProvider | None = None
         self._bahamas: BahamasProvider | None = None
-        abc_config = self._markets_by_id.get("abc")
-        if abc_config:
-            self._abc = ABCProvider(abc_config, float(latitude), float(longitude))
-        assai_config = self._markets_by_id.get("assai")
-        if assai_config:
-            self._assai = AssaiProvider(assai_config)
-        bahamas_config = self._markets_by_id.get("bahamas")
-        if bahamas_config:
-            self._bahamas = BahamasProvider(bahamas_config)
+        for market in self.market_configs:
+            market_type = market.get("type")
+            if market_type == "abc" and self._abc is None:
+                self._abc = ABCProvider(
+                    market, float(latitude), float(longitude)
+                )
+            elif market_type == "atacadao" and self._atacadao is None:
+                self._atacadao = AtacadaoProvider(market)
+            elif market_type == "assai" and self._assai is None:
+                self._assai = AssaiProvider(market)
+            elif market_type == "bahamas" and self._bahamas is None:
+                self._bahamas = BahamasProvider(market)
 
     # ------------------------------------------------------------------
     # Setup / storage
@@ -284,6 +289,22 @@ class ShoppingBudgetManager:
 
     def _market(self, market_id: str) -> dict[str, Any] | None:
         return self._markets_by_id.get(market_id)
+
+    @property
+    def _online_markets(self) -> list[dict[str, Any]]:
+        return [
+            market
+            for market in self._markets
+            if market.get("type") in ("abc", "atacadao")
+        ]
+
+    def _provider_for(self, market: dict[str, Any]) -> Any | None:
+        market_type = market.get("type")
+        if market_type == "abc":
+            return self._abc
+        if market_type == "atacadao":
+            return self._atacadao
+        return None
 
     def _save(self) -> None:
         if self._shutdown:
@@ -616,11 +637,12 @@ class ShoppingBudgetManager:
             if isinstance(stored, dict) and stored.get("source") in (
                 "manual",
                 "abc",
+                "atacadao",
             ):
                 price = dict(stored)
                 price["market_id"] = market_id
                 price["stale"] = (
-                    price.get("source") == "abc"
+                    price.get("source") in ("abc", "atacadao")
                     and _is_stale(price.get("updated_at"), self.price_ttl_hours)
                 )
                 price["estimated"] = bool(price.get("estimated", False))
@@ -808,15 +830,26 @@ class ShoppingBudgetManager:
         if best_market and best_market in prices:
             best_price = prices[best_market].get("price")
         abc_suggestions: dict[str, dict[str, Any]] = {}
+        atacadao_suggestions: dict[str, dict[str, Any]] = {}
         if product:
             product_prices = self.data["prices"].get(product["id"]) or {}
-            suggestion = product_prices.get("abc_suggestion")
-            if isinstance(suggestion, dict) and suggestion.get("price"):
-                abc_market = self._markets_by_id.get("abc")
-                if abc_market and not prices.get("abc"):
-                    abc_suggestions["abc"] = suggestion
+            for market in self._online_markets:
+                market_id = market["id"]
+                suggestion = product_prices.get(f"{market_id}_suggestion")
+                if not (
+                    isinstance(suggestion, dict) and suggestion.get("price")
+                ):
+                    continue
+                if prices.get(market_id):
+                    continue
+                if market.get("type") == "abc":
+                    abc_suggestions[market_id] = suggestion
+                elif market.get("type") == "atacadao":
+                    atacadao_suggestions[market_id] = suggestion
         google_urls = {
-            market["id"]: self._google_url(product, market["name"])
+            market["id"]: self._google_url(
+                product, market["name"], summary
+            )
             for market in self._markets
         }
         return {
@@ -835,6 +868,7 @@ class ShoppingBudgetManager:
             "prices": prices,
             "ocr_suggestions": ocr_suggestions,
             "abc_suggestions": abc_suggestions,
+            "atacadao_suggestions": atacadao_suggestions,
             "missing_markets": missing,
             "best_market": best_market,
             "best_price": best_price,
@@ -920,6 +954,8 @@ class ShoppingBudgetManager:
         store = None
         if market.get("type") == "abc":
             store = self.data["meta"].get("abc_store")
+        elif market.get("type") == "atacadao":
+            store = self.data["meta"].get("atacadao_store")
         return {
             "id": market_id,
             "name": market.get("name") or market_id,
@@ -1015,7 +1051,8 @@ class ShoppingBudgetManager:
                 continue
             for market in self._markets:
                 market_id = market["id"]
-                if market.get("type") == "abc":
+                if market.get("type") in ("abc", "atacadao"):
+                    source = market.get("type")
                     stored = (
                         self.data["prices"]
                         .get(product["id"], {})
@@ -1025,7 +1062,7 @@ class ShoppingBudgetManager:
                         continue
                     if (
                         not isinstance(stored, dict)
-                        or stored.get("source") != "abc"
+                        or stored.get("source") != source
                         or _is_stale(
                             stored.get("updated_at"), self.price_ttl_hours
                         )
@@ -1054,6 +1091,7 @@ class ShoppingBudgetManager:
             "refreshing": self._refresh_lock.locked(),
             "last_refresh": self.data["meta"].get("last_refresh"),
             "abc_store": self.data["meta"].get("abc_store"),
+            "atacadao_store": self.data["meta"].get("atacadao_store"),
             "catalog_size": len(self.data["catalog"]),
             "errors": (self.data["meta"].get("errors") or [])[-10:],
             "market_errors": self.data["meta"].get("market_errors") or {},
@@ -1063,8 +1101,16 @@ class ShoppingBudgetManager:
         }
 
     @staticmethod
-    def _google_url(product: dict[str, Any] | None, market_name: str) -> str:
-        name = product_display_name(product) if product else "produto"
+    def _google_url(
+        product: dict[str, Any] | None,
+        market_name: str,
+        summary: str | None = None,
+    ) -> str:
+        name = (
+            product_display_name(product)
+            if product
+            else (summary or "produto")
+        )
         query = quote_plus(f"{name} {market_name} Uberlândia preço")
         return f"https://www.google.com/search?q={query}"
 
@@ -1121,8 +1167,10 @@ class ShoppingBudgetManager:
             for market in selected:
                 mid = market["id"]
                 market_type = market.get("type")
-                if market_type == "abc":
-                    result = await self._async_refresh_abc_market(mid, force)
+                if market_type in ("abc", "atacadao"):
+                    result = await self._async_refresh_online_market(
+                        mid, force
+                    )
                 elif market_type in ("assai", "bahamas"):
                     result = await self._async_refresh_flyer_market(mid, force)
                 else:
@@ -1144,13 +1192,18 @@ class ShoppingBudgetManager:
                 "errors": errors,
             }
 
-    def _abc_record(
-        self, product: dict[str, Any], result: dict[str, Any]
+    def _online_record(
+        self,
+        market: dict[str, Any],
+        product: dict[str, Any],
+        result: dict[str, Any],
     ) -> dict[str, Any]:
-        """Build the stored price record for one ABC search result."""
+        """Build the stored price record for one online search result."""
+        provider = self._provider_for(market)
+        term = result.get("searched_term") or product_display_name(product)
         return {
             "price": result["price"],
-            "source": "abc",
+            "source": market.get("type"),
             "updated_at": _utcnow(),
             "product_name": result.get("product_name"),
             "product_id_ext": result.get("product_id"),
@@ -1163,104 +1216,108 @@ class ShoppingBudgetManager:
             "store_id": result.get("store_id"),
             "store_name": result.get("store_name"),
             "searched_term": result.get("searched_term"),
-            "url": self._abc.product_search_url(
-                result.get("searched_term") or product_display_name(product)
-            )
-            if self._abc
-            else None,
+            "url": provider.product_search_url(term) if provider else None,
         }
 
     def _schedule_default_price(self, product: dict[str, Any] | None) -> None:
-        """Look up the default-market price without blocking the item action."""
-        if self._shutdown or not product:
-            return
-        market = self._market(self.default_market_id)
-        if not market or market.get("type") != "abc":
+        """Look up online prices without blocking the item action."""
+        if self._shutdown or not product or not self._online_markets:
             return
         self.hass.async_create_task(self._async_lookup_default_price(product))
 
     async def _async_lookup_default_price(
         self, product: dict[str, Any], *, force: bool = False
     ) -> None:
-        """Fetch and apply one real price for a newly added/linked product."""
-        market = self._market(self.default_market_id)
-        if (
-            self._shutdown
-            or not market
-            or market.get("type") != "abc"
-            or self._abc is None
-        ):
+        """Fetch and apply real prices for a newly added/linked product."""
+        if self._shutdown or not product:
             return
-
         product_id = product.get("id")
-        if not product_id:
+        if not product_id or not self._online_markets:
             return
-        market_id = market["id"]
+        if self._refresh_lock.locked():
+            return
 
+        changed = False
         async with self._lookup_lock:
-            stored = self.data["prices"].setdefault(product_id, {}).get(market_id)
-            if isinstance(stored, dict) and stored.get("source") == "manual":
-                return
-            if (
-                not force
-                and isinstance(stored, dict)
-                and stored.get("source") == "abc"
-                and not _is_stale(stored.get("updated_at"), self.price_ttl_hours)
-            ):
-                return
-            suggestion = self.data["prices"].setdefault(product_id, {}).get(
-                "abc_suggestion"
-            )
-            if (
-                not force
-                and isinstance(suggestion, dict)
-                and not _is_stale(
-                    suggestion.get("updated_at"), self.price_ttl_hours
+            for market in self._online_markets:
+                market_id = market["id"]
+                provider = self._provider_for(market)
+                if provider is None:
+                    continue
+                stored = self.data["prices"].setdefault(product_id, {}).get(
+                    market_id
                 )
-            ):
-                return
-            if self._refresh_lock.locked():
-                return
+                if isinstance(stored, dict) and stored.get("source") == "manual":
+                    continue
+                source = market.get("type")
+                if (
+                    not force
+                    and isinstance(stored, dict)
+                    and stored.get("source") == source
+                    and not _is_stale(
+                        stored.get("updated_at"), self.price_ttl_hours
+                    )
+                ):
+                    continue
+                suggestion_key = f"{market_id}_suggestion"
+                suggestion = self.data["prices"].setdefault(
+                    product_id, {}
+                ).get(suggestion_key)
+                if (
+                    not force
+                    and isinstance(suggestion, dict)
+                    and not _is_stale(
+                        suggestion.get("updated_at"), self.price_ttl_hours
+                    )
+                ):
+                    continue
 
-            try:
-                result, info = await self.hass.async_add_executor_job(
-                    self._abc.search_best, product
-                )
-            except Exception as err:  # noqa: BLE001 - lookup failure is non-fatal
-                errors = [f"{product_display_name(product)}: {err}"]
-                self.data["meta"].setdefault("market_errors", {})[market_id] = errors
-                self._save()
-                self._fire_event()
-                return
-
-            if not result:
-                errors = [str(error) for error in info.get("errors") or []]
-                if errors:
+                try:
+                    result, info = await self.hass.async_add_executor_job(
+                        provider.search_best, product
+                    )
+                except Exception as err:  # noqa: BLE001 - lookup failure is non-fatal
+                    errors = [f"{product_display_name(product)}: {err}"]
                     self.data["meta"].setdefault("market_errors", {})[
                         market_id
-                    ] = errors[-5:]
-                self._save()
-                return
+                    ] = errors
+                    changed = True
+                    continue
 
-            record = self._abc_record(product, result)
-            if float(result.get("score") or 0) >= ABC_AUTO_SCORE:
-                self.data["prices"].setdefault(product_id, {})[
-                    market_id
-                ] = record
-                self.data["prices"][product_id].pop("abc_suggestion", None)
-            else:
-                self.data["prices"].setdefault(product_id, {})[
-                    "abc_suggestion"
-                ] = record
-            self.data["meta"].setdefault("market_errors", {}).pop(market_id, None)
+                if not result:
+                    errors = [
+                        str(error) for error in info.get("errors") or []
+                    ]
+                    if errors:
+                        self.data["meta"].setdefault("market_errors", {})[
+                            market_id
+                        ] = errors[-5:]
+                        changed = True
+                    continue
+
+                record = self._online_record(market, product, result)
+                prices = self.data["prices"].setdefault(product_id, {})
+                if float(result.get("score") or 0) >= ONLINE_AUTO_SCORE:
+                    prices[market_id] = record
+                    prices.pop(suggestion_key, None)
+                else:
+                    prices[suggestion_key] = record
+                self.data["meta"].setdefault("market_errors", {}).pop(
+                    market_id, None
+                )
+                changed = True
+
+        if changed:
             self._save()
             self._fire_event()
 
-    async def _async_refresh_abc_market(
+    async def _async_refresh_online_market(
         self, market_id: str, force: bool
     ) -> dict[str, Any]:
-        if self._abc is None:
-            return {"status": "error", "errors": ["ABC não configurada"]}
+        market = self._market(market_id)
+        provider = self._provider_for(market) if market else None
+        if not market or provider is None:
+            return {"status": "error", "errors": ["Mercado online não configurado"]}
         products = await self._async_current_products()
         if not products:
             return {
@@ -1269,18 +1326,31 @@ class ShoppingBudgetManager:
                 "updated": 0,
                 "errors": [],
             }
-        try:
-            store = await self.hass.async_add_executor_job(
-                self._abc.choose_store
-            )
-        except ABCError as err:
-            return {"status": "error", "updated": 0, "errors": [str(err)]}
-        self.data["meta"]["abc_store"] = {
-            "id": store.get("id"),
-            "name": store.get("apelido") or store.get("nomeFantasia"),
-            "number": store.get("numeroLoja"),
-            "distance_km": store.get("_distance_km"),
-        }
+        store: dict[str, Any] | None = None
+        if market.get("type") == "abc":
+            try:
+                abc_store = await self.hass.async_add_executor_job(
+                    provider.choose_store
+                )
+            except ABCError as err:
+                return {"status": "error", "updated": 0, "errors": [str(err)]}
+            store = {
+                "id": abc_store.get("id"),
+                "name": abc_store.get("apelido")
+                or abc_store.get("nomeFantasia"),
+                "number": abc_store.get("numeroLoja"),
+                "distance_km": abc_store.get("_distance_km"),
+            }
+            self.data["meta"]["abc_store"] = store
+        elif market.get("type") == "atacadao":
+            store = {
+                "name": provider.store_name,
+                "postal_code": provider.postal_code,
+            }
+            self.data["meta"]["atacadao_store"] = store
+
+        source = market.get("type")
+        suggestion_key = f"{market_id}_suggestion"
         updated = 0
         skipped = 0
         suggestions = 0
@@ -1295,7 +1365,7 @@ class ShoppingBudgetManager:
             if (
                 not force
                 and isinstance(stored, dict)
-                and stored.get("source") == "abc"
+                and stored.get("source") == source
                 and not _is_stale(stored.get("updated_at"), self.price_ttl_hours)
             ):
                 skipped += 1
@@ -1304,9 +1374,9 @@ class ShoppingBudgetManager:
                 await asyncio.sleep(0.25)
             try:
                 result, info = await self.hass.async_add_executor_job(
-                    self._abc.search_best, product
+                    provider.search_best, product
                 )
-            except ABCError as err:
+            except (ABCError, AtacadaoError) as err:
                 errors.append(f"{product_display_name(product)}: {err}")
                 consecutive_errors += 1
                 if consecutive_errors >= 3:
@@ -1323,13 +1393,13 @@ class ShoppingBudgetManager:
                 suggestions += 1
                 errors.extend(info.get("errors") or [])
                 continue
-            record = self._abc_record(product, result)
-            if float(result.get("score") or 0) >= ABC_AUTO_SCORE:
+            record = self._online_record(market, product, result)
+            if float(result.get("score") or 0) >= ONLINE_AUTO_SCORE:
                 self.data["prices"].setdefault(product_id, {})[market_id] = record
                 updated += 1
             else:
                 self.data["prices"].setdefault(product_id, {})[
-                    "abc_suggestion"
+                    suggestion_key
                 ] = record
                 suggestions += 1
         if errors:
@@ -1343,7 +1413,7 @@ class ShoppingBudgetManager:
             "skipped": skipped,
             "suggestions": suggestions,
             "errors": errors[-5:],
-            "store": self.data["meta"].get("abc_store"),
+            "store": store,
         }
 
     async def _async_refresh_flyer_market(
@@ -1651,7 +1721,9 @@ class ShoppingBudgetManager:
         if not product:
             raise ServiceValidationError("O item não está vinculado a um produto.")
         market_id = call.data["market"]
-        self.data["prices"].get(product["id"], {}).pop(market_id, None)
+        product_prices = self.data["prices"].get(product["id"], {})
+        product_prices.pop(market_id, None)
+        product_prices.pop(f"{market_id}_suggestion", None)
         purchased = item_data.get("purchased")
         if isinstance(purchased, dict):
             (purchased.get("prices") or {}).pop(market_id, None)
@@ -1901,7 +1973,12 @@ class ShoppingBudgetManager:
                 unsubscribe()
         if self._processing_task and not self._processing_task.done():
             self._processing_task.cancel()
-        for provider in (self._abc, self._assai, self._bahamas):
+        for provider in (
+            self._abc,
+            self._atacadao,
+            self._assai,
+            self._bahamas,
+        ):
             session = getattr(provider, "session", None)
             if session is not None:
                 try:

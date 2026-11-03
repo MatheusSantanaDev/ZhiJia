@@ -6,8 +6,8 @@
 shopping_budget:
   todo_entity: todo.google_keep_lista_de_compras
 
-  # Mercado usado na busca automática ao adicionar um produto. O ABC é o
-  # único configurado agora porque possui preço real por loja e API estável.
+  # Mercado principal da busca automática. ABC e Atacadão são consultados
+  # automaticamente; o Google continua como fallback manual por item.
   default_market: abc
 
   markets:
@@ -20,6 +20,16 @@ shopping_budget:
       # Hiper ABC Uberlândia (Av. João Naves de Ávila, 317).
       store_id: 909
       auto_store: true
+
+    atacadao:
+      name: Atacadão
+      type: atacadao
+      url: https://www.atacadao.com.br/
+      api_url: https://www.atacadao.com.br
+      # CEP usado para simular a entrega e obter o preço da loja local.
+      # Troque se o endereço de referência mudar.
+      postal_code: "38412324"
+      store_name: Atacadão Uberlândia
 
     # Assaí e Bahamas ficam desativados: os encartes em PDF/imagem não têm
     # uma API de consulta confiável. Para reativar, descomente e reinicie o HA.
