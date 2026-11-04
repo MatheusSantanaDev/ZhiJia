@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 import asyncio
 import functools
@@ -38,11 +37,12 @@ from homeassistant.util import slugify
 
 from .catalog import (
     Catalog,
+    clean_item_name,
+    clean_item_query,
     normalize,
     ocr_match_score,
     parse_package,
     product_display_name,
-    product_payload,
     seed_products,
 )
 from .const import (
@@ -259,11 +259,33 @@ class ShoppingBudgetManager:
         changed = False
         for product in seed_products():
             product_id = product["id"]
-            if product_id not in self.data["catalog"]:
+            existing = self.data["catalog"].get(product_id)
+            if not isinstance(existing, dict):
                 self.data["catalog"][product_id] = product
                 changed = True
-        if self.data["meta"].get("seed_version") != 1:
-            self.data["meta"]["seed_version"] = 1
+                continue
+            # Seed products are owned by the integration. Manual products
+            # (seed=False) and user-created products are never overwritten.
+            if existing.get("seed") is False:
+                continue
+            merged = dict(existing)
+            for key in (
+                "name",
+                "brand",
+                "package",
+                "grams",
+                "unit",
+                "aliases",
+                "display_name",
+                "seed",
+            ):
+                if merged.get(key) != product.get(key):
+                    merged[key] = product.get(key)
+                    changed = True
+            if merged != existing:
+                self.data["catalog"][product_id] = merged
+        if self.data["meta"].get("seed_version") != 2:
+            self.data["meta"]["seed_version"] = 2
             changed = True
         if changed:
             self.catalog.load(self.data["catalog"])
@@ -463,6 +485,12 @@ class ShoppingBudgetManager:
                         product, _suggestions, _score = self._resolve_product(
                             item_data, summary
                         )
+                        if not product:
+                            product = self._ensure_default_product(
+                                item_data, summary
+                            )
+                            if product:
+                                changed = True
                         self._schedule_default_price(product)
                 elif previous_status != status:
                     if status == "completed":
@@ -520,7 +548,7 @@ class ShoppingBudgetManager:
             copied["frozen"] = True
             copied["snapshot_at"] = now
             copied["estimated"] = bool(
-                estimated or price.get("source") not in ("manual", "abc")
+                estimated or copied.get("estimated", False)
             )
             snapshot[market_id] = copied
         item_data["purchased"] = {
@@ -543,12 +571,6 @@ class ShoppingBudgetManager:
 
         if product and link_source != "auto":
             return product, [], 1.0
-        if (
-            product
-            and link_source == "auto"
-            and item_data.get("linked_text_norm") == normalize(summary)
-        ):
-            return product, [], 1.0
 
         if not summary:
             if product and link_source != "auto":
@@ -562,11 +584,61 @@ class ShoppingBudgetManager:
             item_data["linked_text_norm"] = normalize(summary)
             return resolved, suggestions, score
 
+        # Keep an auto-created/first-option product while the list text has
+        # not changed. It may already contain the brand/package learned from
+        # an online market and should not disappear on every page load.
+        if (
+            product
+            and link_source == "auto"
+            and item_data.get("linked_text_norm") == normalize(summary)
+        ):
+            return product, suggestions, 1.0
+
         if product_id:
             item_data["product_id"] = None
             item_data["link_source"] = None
             item_data["linked_text_norm"] = None
         return None, suggestions, score
+
+    def _ensure_default_product(
+        self, item_data: dict[str, Any], summary: str
+    ) -> dict[str, Any] | None:
+        """Create a permanent first option for an item without a catalog match.
+
+        The name/size are completed by the first online result when possible.
+        Having a real product here is what lets the refresh loop query every
+        list item, including free-text items created directly in Google Keep.
+        """
+        summary = (summary or "").strip()
+        name = clean_item_name(summary)
+        if not name:
+            return None
+        grams, unit, package = parse_package(summary)
+        aliases = list(
+            dict.fromkeys(
+                alias
+                for alias in (summary, clean_item_query(summary))
+                if alias
+            )
+        )
+        product = self._ensure_product(
+            name=name,
+            brand="",
+            package=package or "",
+            grams=grams,
+            unit=unit or "",
+            aliases=aliases,
+        )
+        if product.get("default_choice") is not True:
+            product["default_choice"] = True
+            product["display_name"] = product_display_name(product)
+            self.catalog.add(product, overwrite=True)
+            self.data["catalog"][product["id"]] = dict(product)
+        item_data["product_id"] = product["id"]
+        item_data["link_source"] = "auto"
+        item_data["linked_text_norm"] = normalize(summary)
+        self._save()
+        return product
 
     def _scored_ocr_candidates(
         self, product: dict[str, Any], offer: dict[str, Any]
@@ -784,6 +856,10 @@ class ShoppingBudgetManager:
             product, suggestions, _score = self._resolve_product(
                 item_data, summary
             )
+            if not product:
+                product = self._ensure_default_product(item_data, summary)
+                if product:
+                    suggestions = []
             if (
                 before_product != item_data.get("product_id")
                 or before_source != item_data.get("link_source")
@@ -1137,6 +1213,8 @@ class ShoppingBudgetManager:
             product, _suggestions, _score = self._resolve_product(
                 item_data, summary
             )
+            if not product:
+                product = self._ensure_default_product(item_data, summary)
             if product:
                 products[product["id"]] = product
         return list(products.values())
@@ -1216,8 +1294,100 @@ class ShoppingBudgetManager:
             "store_id": result.get("store_id"),
             "store_name": result.get("store_name"),
             "searched_term": result.get("searched_term"),
+            "local_price": result.get("local_price", True),
             "url": provider.product_search_url(term) if provider else None,
         }
+
+    def _apply_default_choice_details(
+        self, product: dict[str, Any], result: dict[str, Any]
+    ) -> bool:
+        """Complete a first-option product with brand/package from a market."""
+        if not product.get("default_choice"):
+            return False
+        changed = False
+        brand = str(result.get("brand") or "").strip()
+        package = str(result.get("package") or "").strip()
+        if brand and not product.get("brand"):
+            product["brand"] = brand
+            changed = True
+        if package and not product.get("package"):
+            product["package"] = package
+            grams = result.get("grams")
+            unit = result.get("unit")
+            if grams is None:
+                grams, parsed_unit, _label = parse_package(package)
+                unit = unit or parsed_unit
+            if grams is not None:
+                product["grams"] = grams
+            if unit:
+                product["unit"] = unit
+            changed = True
+        if changed:
+            product["display_name"] = product_display_name(product)
+            self.catalog.add(product, overwrite=True)
+            self.data["catalog"][product["id"]] = dict(product)
+        return changed
+
+    def _store_online_result(
+        self,
+        market: dict[str, Any],
+        product: dict[str, Any],
+        result: dict[str, Any],
+        suggestion_key: str,
+    ) -> dict[str, Any]:
+        """Store the first option found; low confidence is marked as estimated."""
+        record = self._online_record(market, product, result)
+        score = float(result.get("score") or 0)
+        size_mismatch = False
+        try:
+            product_grams = float(product.get("grams") or 0)
+            result_grams = float(result.get("grams") or 0)
+        except (TypeError, ValueError):
+            product_grams = result_grams = 0
+        if product_grams and result_grams:
+            size_mismatch = (
+                min(product_grams, result_grams)
+                / max(product_grams, result_grams)
+                < 0.97
+            )
+        else:
+            product_package = normalize(product.get("package"))
+            result_package = normalize(result.get("package"))
+            size_mismatch = bool(
+                product_package
+                and result_package
+                and product_package != result_package
+            )
+        local_price = result.get("local_price", True) is not False
+        record["estimated"] = (
+            not local_price or score < ONLINE_AUTO_SCORE or size_mismatch
+        )
+        if record["estimated"]:
+            candidate = str(record.get("product_name") or "").strip()
+            display = product_display_name(product)
+            if not local_price:
+                market_name = market.get("name") or "Mercado"
+                record["note"] = (
+                    f"Preço online do {market_name} (não confirmado para o CEP). "
+                    f"Primeira opção: {candidate[:90]}. "
+                    "Confira a marca e o tamanho."
+                )
+            elif candidate and (
+                size_mismatch or normalize(candidate) not in normalize(display)
+            ):
+                record["note"] = (
+                    f"Primeira opção: {candidate[:90]}. "
+                    "Confira a marca e o tamanho."
+                )
+            else:
+                record["note"] = (
+                    "Primeira opção encontrada automaticamente; "
+                    "confira a marca e o tamanho."
+                )
+        prices = self.data["prices"].setdefault(product["id"], {})
+        prices[market["id"]] = record
+        prices.pop(suggestion_key, None)
+        return record
 
     def _schedule_default_price(self, product: dict[str, Any] | None) -> None:
         """Look up online prices without blocking the item action."""
@@ -1260,18 +1430,6 @@ class ShoppingBudgetManager:
                 ):
                     continue
                 suggestion_key = f"{market_id}_suggestion"
-                suggestion = self.data["prices"].setdefault(
-                    product_id, {}
-                ).get(suggestion_key)
-                if (
-                    not force
-                    and isinstance(suggestion, dict)
-                    and not _is_stale(
-                        suggestion.get("updated_at"), self.price_ttl_hours
-                    )
-                ):
-                    continue
-
                 try:
                     result, info = await self.hass.async_add_executor_job(
                         provider.search_best, product
@@ -1295,13 +1453,10 @@ class ShoppingBudgetManager:
                         changed = True
                     continue
 
-                record = self._online_record(market, product, result)
-                prices = self.data["prices"].setdefault(product_id, {})
-                if float(result.get("score") or 0) >= ONLINE_AUTO_SCORE:
-                    prices[market_id] = record
-                    prices.pop(suggestion_key, None)
-                else:
-                    prices[suggestion_key] = record
+                self._apply_default_choice_details(product, result)
+                self._store_online_result(
+                    market, product, result, suggestion_key
+                )
                 self.data["meta"].setdefault("market_errors", {}).pop(
                     market_id, None
                 )
@@ -1353,6 +1508,7 @@ class ShoppingBudgetManager:
         suggestion_key = f"{market_id}_suggestion"
         updated = 0
         skipped = 0
+        estimated = 0
         suggestions = 0
         errors: list[str] = []
         consecutive_errors = 0
@@ -1393,15 +1549,13 @@ class ShoppingBudgetManager:
                 suggestions += 1
                 errors.extend(info.get("errors") or [])
                 continue
-            record = self._online_record(market, product, result)
-            if float(result.get("score") or 0) >= ONLINE_AUTO_SCORE:
-                self.data["prices"].setdefault(product_id, {})[market_id] = record
-                updated += 1
-            else:
-                self.data["prices"].setdefault(product_id, {})[
-                    suggestion_key
-                ] = record
-                suggestions += 1
+            self._apply_default_choice_details(product, result)
+            record = self._store_online_result(
+                market, product, result, suggestion_key
+            )
+            updated += 1
+            if record.get("estimated"):
+                estimated += 1
         if errors:
             self.data["meta"].setdefault("market_errors", {})[market_id] = errors[-5:]
         else:
@@ -1411,7 +1565,8 @@ class ShoppingBudgetManager:
             "status": "ok",
             "updated": updated,
             "skipped": skipped,
-            "suggestions": suggestions,
+            "estimated": estimated,
+            "no_result": suggestions,
             "errors": errors[-5:],
             "store": store,
         }

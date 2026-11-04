@@ -14,6 +14,19 @@ _PACKAGE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_ITEM_COUNT_PREFIX_RE = re.compile(
+    r"^\s*\d+(?:[.,]\d+)?\s*"
+    r"(?:kg|g|mg|ml|l|litros?|un|unid(?:ade|ades)?|"
+    r"rolos?|folhas?|capsulas?|sach[eê]s?|pacotes?|caixas?)?\s+",
+    re.IGNORECASE,
+)
+
+_ITEM_CONTAINER_PREFIX_RE = re.compile(
+    r"^\s*(?:caixas?|fardos?|fardinhos?|sacos?|pacotes?|"
+    r"garrafas?|latas?|unidades?|d[uú]zias?)\s+(?:de\s+)?",
+    re.IGNORECASE,
+)
+
 _STOPWORDS = {
     "a",
     "as",
@@ -97,6 +110,36 @@ def normalize(text: str | None) -> str:
     text = strip_accents(str(text)).lower()
     text = re.sub(r"[^a-z0-9]+", " ", text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _strip_item_prefixes(text: str | None) -> str:
+    """Remove list counts and packaging words from a free-text list item."""
+    value = str(text or "").strip()
+    while value:
+        updated = _ITEM_COUNT_PREFIX_RE.sub("", value, count=1).strip()
+        updated = _ITEM_CONTAINER_PREFIX_RE.sub("", updated, count=1).strip()
+        updated = re.sub(r"^\s*de\s+", "", updated, flags=re.IGNORECASE).strip()
+        if updated == value:
+            break
+        value = updated
+    return value
+
+
+def clean_item_query(text: str | None) -> str:
+    """Return the normalized product name from a list item.
+
+    Google Keep items often look like "3 caixas de leite" or "500g mussarela".
+    The quantity/container is useful context, but it must not prevent the
+    catalog from finding the actual product.
+    """
+    return normalize(_strip_item_prefixes(text))
+
+
+def clean_item_name(text: str | None) -> str:
+    """Return a human-readable fallback product name for a list item."""
+    value = _strip_item_prefixes(text)
+    value = re.sub(r"\s+", " ", value).strip()
+    return value.capitalize() if value else ""
 
 
 def tokenize(text: str | None) -> set[str]:
@@ -452,13 +495,25 @@ class Catalog:
 
         Returns (product, suggestions, score). The product is only returned
         when the match is unambiguous and strong enough for automatic linking.
+        The raw text is tried first (so "500g mussarela" can match a 500g
+        product); then the list count/container prefix is removed.
         """
         if not text:
             return None, [], 0.0
-        query_norm = normalize(text)
-        exact = self._aliases.get(query_norm)
-        if exact:
-            products = [self._products[pid] for pid in exact if pid in self._products]
+        query_norms = list(
+            dict.fromkeys(
+                query
+                for query in (normalize(text), clean_item_query(text))
+                if query
+            )
+        )
+        for query_norm in query_norms:
+            exact = self._aliases.get(query_norm)
+            if not exact:
+                continue
+            products = [
+                self._products[pid] for pid in exact if pid in self._products
+            ]
             if len(products) == 1:
                 return product_payload(products[0]), [], 1.0
             scored = [
@@ -475,7 +530,10 @@ class Catalog:
 
         scored = []
         for product in self._products.values():
-            score = self._score_product(query_norm, product)
+            score = max(
+                self._score_product(query_norm, product)
+                for query_norm in query_norms
+            )
             if score > 0.12:
                 scored.append((score, product))
         scored.sort(key=lambda item: item[0], reverse=True)
@@ -517,6 +575,7 @@ def _product(
         "grams": grams,
         "unit": unit or ("g" if grams else "un"),
         "aliases": aliases or [],
+        "seed": True,
     }
     product["id"] = slugify(
         f"{name} {product['brand']} {product['package']}"
@@ -628,7 +687,7 @@ def seed_products() -> list[dict[str, Any]]:
             "Margarina",
             "Qualy",
             "500 g",
-            aliases=["margarina", "manteiga", "qualy"],
+            aliases=["margarina", "qualy"],
         ),
         _product(
             "Queijo mussarela fatiado",
@@ -638,9 +697,15 @@ def seed_products() -> list[dict[str, Any]]:
         ),
         _product(
             "Presunto fatiado",
-            None,
+            "Seara",
             "200 g",
-            aliases=["presunto", "presunto fatiado"],
+            aliases=[
+                "presunto",
+                "presunto fatiado",
+                "mortadela",
+                "presunto mortadela",
+                "presunto/ mortadela",
+            ],
         ),
         _product(
             "Frango inteiro",
@@ -694,7 +759,7 @@ def seed_products() -> list[dict[str, Any]]:
             "Sabonete",
             "Dove",
             "90 g",
-            aliases=["sabonete", "dove"],
+            aliases=["sabonete", "sabonetes", "dove"],
         ),
         _product(
             "Shampoo",
@@ -706,7 +771,7 @@ def seed_products() -> list[dict[str, Any]]:
             "Condicionador",
             "Dove",
             "400 ml",
-            aliases=["condicionador"],
+            aliases=["condicionador", "condicinador"],
         ),
         _product(
             "Creme dental",
@@ -768,5 +833,275 @@ def seed_products() -> list[dict[str, Any]]:
             None,
             "30 unidades",
             aliases=["saco de lixo", "sacos de lixo", "saco lixo"],
+        ),
+        _product(
+            "Azeite extra virgem",
+            "Andorinha",
+            "500 ml",
+            aliases=["azeite", "azeite de oliva", "azeite andorinha"],
+        ),
+        _product(
+            "Fósforo",
+            "Fiat Lux",
+            "1 unidade",
+            aliases=[
+                "fosforo",
+                "fósforo",
+                "caixa de fosforo",
+                "fiat lux",
+                "fosforo fiat lux",
+            ],
+        ),
+        _product(
+            "Velas brancas",
+            None,
+            "8 unidades",
+            aliases=["vela", "velas", "caixa de velas"],
+        ),
+        _product(
+            "Calabresa",
+            "Seara",
+            "500 g",
+            aliases=["calabresa", "linguica calabresa", "linguiça calabresa"],
+        ),
+        _product(
+            "Limpador multiuso",
+            "CIF",
+            "500 ml",
+            aliases=["cif", "limpa vidros", "limpa vidros cif"],
+        ),
+        _product(
+            "Flocão de milho",
+            "Coringa",
+            "500 g",
+            aliases=["cuscuz", "flocao", "flocão", "flocao de milho"],
+        ),
+        _product(
+            "Água mineral com gás",
+            "Crystal",
+            "1,5 L",
+            aliases=[
+                "agua com gas",
+                "água com gás",
+                "fardo agua com gas",
+                "agua mineral com gas",
+            ],
+        ),
+        _product(
+            "Amido de milho",
+            "Maizena",
+            "500 g",
+            aliases=["maizena", "amido de milho"],
+        ),
+        _product(
+            "Manteiga",
+            "Aviação",
+            "200 g",
+            aliases=["manteiga", "manteiga aviacao"],
+        ),
+        _product(
+            "Requeijão",
+            "Catupiry",
+            "200 g",
+            aliases=["requeijao", "requeijão", "catupiry"],
+        ),
+        _product(
+            "Sabão em barra",
+            "Ypê",
+            "200 g",
+            aliases=["sabao em barra", "sabão em barra", "sabao barra"],
+        ),
+        _product(
+            "Sabão líquido",
+            "Ypê",
+            "1 L",
+            aliases=["sabao liquido", "sabão líquido", "sabao liquido ype"],
+        ),
+        _product(
+            "Tapioca",
+            "Da Terrinha",
+            "400 g",
+            aliases=["tapioca", "goma de tapioca", "flocao de tapioca"],
+        ),
+        _product(
+            "Tênis",
+            None,
+            None,
+            aliases=["tenis", "tênis", "tenis pe", "tênis pé"],
+        ),
+        _product(
+            "Veja multiuso",
+            "Veja",
+            "500 ml",
+            aliases=["veja", "veja multiuso", "limpa vidros veja"],
+        ),
+        _product(
+            "Vinagre",
+            "Castelo",
+            "750 ml",
+            aliases=["vinagre", "vinagre castelo"],
+        ),
+        _product(
+            "Bacon defumado",
+            "Seara",
+            "500 g",
+            aliases=["bacon", "bacon seara"],
+        ),
+        _product(
+            "Molho de tomate",
+            "Quero",
+            "340 g",
+            aliases=["molho", "molho de tomate", "molho normal", "molho quero"],
+        ),
+        _product(
+            "Passata de tomate",
+            "Mutti",
+            "700 g",
+            aliases=["passata", "passata de tomate", "passata mutti"],
+        ),
+        _product(
+            "Creme de leite",
+            "Nestlé",
+            "200 g",
+            aliases=["creme de leite", "creme de leite nestle"],
+        ),
+        _product(
+            "Refrigerante",
+            "Coca-Cola",
+            "6 x 350 ml",
+            aliases=[
+                "refri",
+                "refrigerante",
+                "fardinho de refri",
+                "coca cola",
+                "coca-cola",
+            ],
+        ),
+        _product(
+            "Leite condensado",
+            "Nestlé",
+            "395 g",
+            aliases=["leite condensado", "leite condensado nestle"],
+        ),
+        _product(
+            "Pão francês",
+            None,
+            "1 kg",
+            aliases=["pao frances", "pão francês", "paes", "pães"],
+        ),
+        _product(
+            "Sardinha em óleo",
+            "Gomes da Costa",
+            "125 g",
+            aliases=["sardinha", "sardinhas", "sardinha em oleo"],
+        ),
+        _product(
+            "Iogurte natural desnatado",
+            "Danone",
+            "170 g",
+            aliases=[
+                "iogurte desnatado",
+                "iogurte natural desnatado",
+                "iogurte danone",
+            ],
+        ),
+        _product(
+            "Alho",
+            None,
+            "1 kg",
+            aliases=["alho", "alhos"],
+        ),
+        _product(
+            "Algodão",
+            "Johnson & Johnson",
+            "50 g",
+            aliases=["algodao", "algodão"],
+        ),
+        _product(
+            "Cotonete",
+            "Johnson & Johnson",
+            "75 unidades",
+            aliases=["cotonete", "cotonetes"],
+        ),
+        _product(
+            "Escova de dentes",
+            "Colgate",
+            "1 unidade",
+            aliases=["escova de dentes", "escova dental"],
+        ),
+        _product(
+            "Ketchup",
+            "Heinz",
+            "397 g",
+            aliases=["ketchup", "ketchup heinz"],
+        ),
+        _product(
+            "Lixeira",
+            None,
+            "1 unidade",
+            aliases=["lixeira", "lixeira grande"],
+        ),
+        _product(
+            "Maionese",
+            "Hellmann's",
+            "335 g",
+            aliases=["maionese", "maionese hellmanns"],
+        ),
+        _product(
+            "Mostarda",
+            "Heinz",
+            "255 g",
+            aliases=["mostarda", "mostarda heinz"],
+        ),
+        _product(
+            "Achocolatado em pó",
+            "Nescau",
+            "400 g",
+            aliases=["nescau", "achocolatado", "achocolatado em po"],
+        ),
+        _product(
+            "Papel alumínio",
+            "Rochedo",
+            "30 cm x 4,5 m",
+            aliases=["papel aluminio", "papel alumínio", "papel alumínio rochedo"],
+        ),
+        _product(
+            "Plástico filme",
+            "Rochedo",
+            "30 cm x 30 m",
+            aliases=["plastico filme", "plástico filme", "filme pvc"],
+        ),
+        _product(
+            "Queijo parmesão ralado",
+            "Tirol",
+            "100 g",
+            aliases=[
+                "queijo parmesao",
+                "queijo parmesão",
+                "parmesao",
+                "parmesão ralado",
+            ],
+        ),
+        _product(
+            "Queijo mussarela fatiado",
+            "Tirolez",
+            "500 g",
+            aliases=[
+                "500g mussarela",
+                "mussarela 500g",
+                "queijo mussarela 500g",
+            ],
+        ),
+        _product(
+            "Molho shoyu",
+            "Kikkoman",
+            "200 ml",
+            aliases=["shoyu", "molho shoyu", "molho de soja"],
+        ),
+        _product(
+            "Tempero",
+            "Knorr",
+            "300 g",
+            aliases=["tempero", "temperos", "tempero knorr"],
         ),
     ]

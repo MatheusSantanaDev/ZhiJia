@@ -193,11 +193,19 @@ editável pela aba Orçamento. A lista usada é a que tem
   localização da casa (`zone.home`). O resultado é casado por marca e embalagem.
 - O **Atacadão** usa a API VTEX da loja online. A busca retorna o catálogo e a
   entrega é simulada com o CEP configurado para obter o preço da loja local.
-- Ao adicionar ou vincular um produto, a integração consulta automaticamente
-  **ABC e Atacadão** (`default_market: abc` define apenas o mercado principal).
-  Preços com boa confiança são preenchidos; resultados duvidosos viram uma
-  sugestão do mercado para confirmar. Um preço manual sempre tem prioridade e
-  nunca é sobrescrito.
+  Quando a simulação não confirma um item, a integração usa o preço online de
+  referência se a embalagem for compatível; esse valor fica marcado como
+  estimado e avisa que não foi confirmado para o CEP.
+- Todo item recebe uma **primeira opção** de produto, com marca e
+  gramatura/volume comuns do catálogo (por exemplo, arroz Camil 5 kg, feijão
+  Kicaldo 1 kg e leite Porto Alegre 1 L). Itens livres criados direto no Google
+  Keep também são vinculados automaticamente; se o catálogo ainda não conhecer
+  o produto, a própria busca online completa a marca e a embalagem.
+- Ao adicionar, vincular ou atualizar um item, a integração consulta
+  automaticamente **ABC e Atacadão** (`default_market: abc` define apenas o
+  mercado principal). Resultados de baixa confiança também são preenchidos como
+  **estimados**, com o nome da opção encontrada e o aviso para conferir marca e
+  tamanho. Um preço manual sempre tem prioridade e nunca é sobrescrito.
 - **Assaí** e **Bahamas** ficam desativados porque os encartes não oferecem uma
   API de consulta confiável. O código de OCR continua no projeto e pode ser
   reativado no YAML, mas não aparece na aba enquanto os mercados estiverem

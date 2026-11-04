@@ -23,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 ATACADAO_DEFAULT_SITE_URL = "https://www.atacadao.com.br"
 ATACADAO_SEARCH_PATH = "/api/io/_v/api/intelligent-search/product_search/"
 ATACADAO_SIMULATION_PATH = "/api/checkout/pub/orderForms/simulation"
-ATACADAO_MAX_SIMULATIONS = 3
+ATACADAO_MAX_SIMULATIONS = 5
 
 
 class AtacadaoError(RuntimeError):
@@ -116,8 +116,6 @@ class AtacadaoProvider:
                 continue
             seller = sellers[0]
             offer = seller.get("commertialOffer") or {}
-            if not offer.get("Price"):
-                continue
             images = item.get("images") or []
             image = ""
             if images and isinstance(images[0], dict):
@@ -147,11 +145,50 @@ class AtacadaoProvider:
         if brand and candidate_brand:
             product_brand = normalize(brand)
             offer_brand = normalize(candidate_brand)
-            if product_brand not in offer_brand and offer_brand not in product_brand:
+            product_brand_tokens = set(product_brand.split())
+            offer_brand_tokens = set(offer_brand.split())
+            if not (product_brand_tokens & offer_brand_tokens):
                 score -= 0.12
-        if not candidate.get("search_price"):
-            score -= 1.0
+        grams, _unit, package = parse_package(text)
+        if package and not self._package_compatible(
+            catalog_product, grams, package
+        ):
+            score -= 0.12
+        catalog_text = normalize(product_display_name(catalog_product))
+        candidate_norm = normalize(text)
+        if "com gas" in catalog_text and "sem gas" in candidate_norm:
+            score -= 0.15
+        elif "sem gas" in catalog_text and "com gas" in candidate_norm:
+            score -= 0.15
+        if "desnatado" in catalog_text and "integral" in candidate_norm:
+            score -= 0.12
+        elif "integral" in catalog_text and "desnatado" in candidate_norm:
+            score -= 0.12
         return max(0.0, min(1.0, score))
+
+    @staticmethod
+    def _package_compatible(
+        catalog_product: dict[str, Any],
+        grams: float | None,
+        package: str | None,
+    ) -> bool:
+        """Return whether a candidate's size can price the catalog product."""
+        try:
+            product_grams = float(catalog_product.get("grams") or 0)
+        except (TypeError, ValueError):
+            product_grams = 0
+        if product_grams and grams:
+            ratio = min(product_grams, float(grams)) / max(
+                product_grams, float(grams)
+            )
+            return ratio >= 0.90
+        product_package = normalize(catalog_product.get("package"))
+        candidate_package = normalize(package)
+        return bool(
+            product_package
+            and candidate_package
+            and product_package == candidate_package
+        )
 
     def _simulate(self, candidate: dict[str, Any]) -> dict[str, Any] | None:
         """Return the local item/price for a candidate, if deliverable."""
@@ -209,13 +246,13 @@ class AtacadaoProvider:
         aliases = [
             alias
             for alias in catalog_product.get("aliases") or []
-            if alias and normalize(alias) not in normalize(display)
+            if alias and normalize(alias) != normalize(display)
         ][:2]
 
         queries: list[str] = [display]
         if catalog_product.get("name"):
             queries.append(str(catalog_product["name"]))
-        if brand:
+        if brand and normalize(brand) not in normalize(display):
             queries.append(brand)
         queries.extend(aliases)
 
@@ -244,10 +281,22 @@ class AtacadaoProvider:
                     previous = candidates.get(key)
                     if previous is None or score > previous[0]:
                         candidates[key] = (score, candidate, query)
-            if candidates and max(entry[0] for entry in candidates.values()) >= 0.80:
-                break
 
         ordered = sorted(candidates.values(), key=lambda entry: entry[0], reverse=True)
+        fallback: tuple[float, dict[str, Any], str] | None = None
+        for score, candidate, query in ordered:
+            try:
+                search_price = float(candidate.get("search_price") or 0)
+            except (TypeError, ValueError):
+                search_price = 0
+            if search_price <= 0:
+                continue
+            text = self._candidate_text(candidate)
+            grams, _unit, package = parse_package(text)
+            if self._package_compatible(catalog_product, grams, package):
+                fallback = (score, candidate, query)
+                break
+
         best: tuple[float, dict[str, Any], dict[str, Any], str] | None = None
         for score, candidate, query in ordered[:ATACADAO_MAX_SIMULATIONS]:
             try:
@@ -273,6 +322,36 @@ class AtacadaoProvider:
             "searched_terms": list(seen_queries),
             "errors": errors,
         }
+        if not best and fallback:
+            score, candidate, query = fallback
+            text = self._candidate_text(candidate)
+            grams, unit, package = parse_package(text)
+            try:
+                search_price = float(candidate.get("search_price") or 0)
+            except (TypeError, ValueError):
+                search_price = 0
+            if search_price > 0:
+                return (
+                    {
+                        "price": round(search_price, 2),
+                        "product_name": text,
+                        "product_id": candidate.get("product_id"),
+                        "brand": candidate.get("brand") or "",
+                        "package": package or "",
+                        "grams": grams,
+                        "unit": unit,
+                        "image": candidate.get("image") or "",
+                        "score": round(score, 4),
+                        "searched_term": query,
+                        "store_id": candidate.get("seller_id"),
+                        "store_name": self.store_name,
+                        "store_number": None,
+                        "store_distance_km": None,
+                        "local_price": False,
+                    },
+                    info,
+                )
+
         if not best:
             return None, info
 
@@ -295,6 +374,7 @@ class AtacadaoProvider:
                 "store_name": self.store_name,
                 "store_number": None,
                 "store_distance_km": None,
+                "local_price": True,
             },
             info,
         )
